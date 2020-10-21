@@ -58,7 +58,7 @@ def connectToFlightServer(hostname, flightPort, username, password, sqlquery, tl
         with open(certs, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
       else:
-        print('[Error] Trusted certificates must be provided to establish a TLS connection')
+        print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
         exit()
 
     client = flight.FlightClient(f"{scheme}://{hostname}:{flightPort}",**connection_args)
