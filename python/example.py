@@ -67,6 +67,7 @@ def connectToFlightServer(hostname, flightPort, username, password, sqlquery, tl
 
     if sqlquery:
       flight_desc = flight.FlightDescriptor.for_command(sqlquery)
+      print('[INFO] Query: ', sqlquery)
       schema = client.get_schema(flight_desc)
       print('[INFO] GetSchema was successful')
       print('[INFO] Schema: ', schema)
@@ -79,12 +80,12 @@ def connectToFlightServer(hostname, flightPort, username, password, sqlquery, tl
       print('[INFO] GetStream was successful')
 
   except Exception as e:
-    # Print the exception along with the stack trace.
     print(f'[ERROR] Exception: {repr(e)}')
-    traceback.print_exc()
+    # Uncomment the line below to enable stack trace printing.
+    # traceback.print_exc()
 
 if __name__ == "__main__":
   # Parse the command line arguments.
   args = parseArguments()
-  # Connecto to Dremio Arrow Flight server.
+  # Connect to Dremio Arrow Flight server endpoint.
   connectToFlightServer(args.hostname, args.flightPort, args.username, args.password, args.sqlquery, args.tls, args.trustedCertificates)

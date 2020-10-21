@@ -1,13 +1,14 @@
 # Python Arrow Flight Client Exmaple
-This lightweight Python client connects to the Dremio Arrow Flight server endpoint. This client requires the username and password for authentication. By default, the hostname is 'localhost' and the port is '32010'. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
-> Note that: Trusted certificates must be provided when the tls option is enabled. This client can query any datasets in Dremio that are accessible by the Dremio user provided.
+This lightweight Python client connects to the Dremio Arrow Flight server endpoint. This client requires the username and password for authentication. Developers can use admin or regular user credentials for authentication. This client can query any datasets in Dremio that are accessible by the provided Dremio user. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
+> Note that: Trusted certificates must be provided when the tls option is enabled.
 
 ## Instructions on using this Python client
 - Install and setup Python3 as `pyarrow` requires Python3
-- Install `pyarrow` package using pip
-  - `pip3 install pyarrow`
-- Install `pandas` package using pip
-  - `pip3 install pandas`
+- This client also requires `pyarrow` and `pandas`, consider one of dependency installation method below. We recommend using `conda` for its ease of use.
+- Install dependencies using `conda`
+  - `conda install -c conda-forg --file requirements.txt`
+- Alternatively, install dependencies using `pip` 
+  - `pip3 install -r requirements.txt`
 - Run the Python client:
   - `python3 example.py -host '<DREMIO_HOST>' -user '<DREMIO_USERNAME>' -pass '<DREMIO_PASSWORD>'`
 
