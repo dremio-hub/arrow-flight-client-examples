@@ -1,0 +1,5 @@
+###### Requirements without version specifiers ######
+pandas
+
+###### Requirements with version specifiers ######
+pyarrow==2.0.0
