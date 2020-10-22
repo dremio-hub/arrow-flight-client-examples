@@ -1,3 +1,3 @@
-# Arrow Flight Client Examples
+# Arrow Flight Client Application Examples
 
-This repository provides sample Arrow Flight clients in serveral languages to help you get started with Arrow Flight with Dremio.
+This repository provides sample Arrow Flight client applications in serveral languages to help you get started with Dremio Arrow Flight server endpoint.

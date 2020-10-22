@@ -1,5 +1,5 @@
-# Python Arrow Flight Client Exmaple
-This lightweight Python client connects to the Dremio Arrow Flight server endpoint. This client requires the username and password for authentication. Developers can use admin or regular user credentials for authentication. This client can query any datasets in Dremio that are accessible by the provided Dremio user. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
+# Python Arrow Flight Client Application Exmaple
+This lightweight Python client application connects to the Dremio Arrow Flight server endpoint. It requires the username and password for authentication. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
 > Note that: Trusted certificates must be provided when the tls option is enabled.
 
 ## Instructions on using this Python client
