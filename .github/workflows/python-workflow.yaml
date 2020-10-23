@@ -12,27 +12,51 @@ on:
       - main
 
 jobs:
-  build:
-
+  test-with-dremio:
     runs-on: ubuntu-latest
+    defaults:
+        run:
+          working-directory: python
     strategy:
+      max-parallel: 4
       matrix:
         python-version: [3.5, 3.6, 3.7, 3.8]
 
+    services:
+      dremio:
+        image: dremio/dremio-oss:latest
+        ports:
+          - 9047:9047
+          - 31010:31010
+          - 32010:32010
+          - 45678:45678
+        env:
+          DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        pip install -r python/requirements.txt
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 python/example.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 python/example.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          pip install -r requirements.txt
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 example.py --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 example.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Sleep before test to ensure that Dremio is started
+        run: |
+          sleep 240
+      - name: Test connection to Dremio Arrow Flight server endpoint
+        run: |
+          pytest test.py -v -s
+      - name: Print docker logs
+        if: ${{ failure() || cancelled() }} 
+        run: |
+          docker logs $(docker ps -aq)

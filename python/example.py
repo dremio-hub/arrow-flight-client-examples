@@ -18,6 +18,7 @@ import sys
 
 from pyarrow import flight
 
+
 class DremioBasicServerAuthHandler(flight.ClientAuthHandler):
     """
     ClientAuthHandler for connections to Dremio server endpoint.
@@ -41,29 +42,33 @@ class DremioBasicServerAuthHandler(flight.ClientAuthHandler):
         """
         return self.token
 
+
 def parse_arguments():
     """
     Parses the command-line arguments supplied to the script.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-host', '--hostname', type=str, help='Dremio co-ordinator hostname', \
+    parser.add_argument('-host', '--hostname', type=str, help='Dremio co-ordinator hostname',
       default='localhost')
-    parser.add_argument('-port', '--flightport', type=str, help='Dremio flight server port', \
+    parser.add_argument('-port', '--flightport', type=str, help='Dremio flight server port',
       default='32010')
-    parser.add_argument('-user', '--username', type=str, help='Dremio username', \
+    parser.add_argument('-user', '--username', type=str, help='Dremio username',
       required=True)
-    parser.add_argument('-pass', '--password', type=str, help='Dremio password', \
+    parser.add_argument('-pass', '--password', type=str, help='Dremio password',
       required=True)
-    parser.add_argument('-query', '--sqlquery', type=str, help='SQL query to test', \
+    parser.add_argument('-query', '--sqlquery', type=str, help='SQL query to test',
       required=False)
-    parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection', \
+    parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection',
       required=False, default=False, action='store_true')
-    parser.add_argument('-certs', '--trustedCertificates', type=str, \
+    parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
+    parser.add_argument('-sn', '--servername', type=str, help='Server name to override \
+      hostname with', required=False)
     return parser.parse_args()
 
-def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery, \
-  tls, certs):
+
+def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
+  tls, certs, servername):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
@@ -87,6 +92,11 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
                 print('[ERROR] Trusted certificates must be provided to establish a TLS \
                   connection')
                 sys.exit()
+            # Override server name with a generic grpc option if an alternative server
+            # name is provided
+            if servername:
+                print('[INFO] Server name provided')
+                connection_args["generic_options"] = [('grpc.ssl_target_name_override', servername)]
 
         client = flight.FlightClient("{}://{}:{}".format(scheme, hostname, flightport),
           **connection_args)
@@ -118,10 +128,12 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
 
     except Exception as exception:
         print("[ERROR] Exception: {}".format(repr(exception)))
+        raise
+
 
 if __name__ == "__main__":
     # Parse the command line arguments.
     args = parse_arguments()
     # Connect to Dremio Arrow Flight server endpoint.
-    connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username, \
-      args.password, args.sqlquery, args.tls, args.trustedCertificates)
+    connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username,
+      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.servername)

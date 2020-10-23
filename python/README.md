@@ -1,5 +1,5 @@
 # Python Arrow Flight Client Application Exmaple
-![Build Status](https://github.com/dremio-hub/arrow-flight-client-examples/workflows/python-build/badge.svg)
+![Build Status](https://github.com/tifflhl/arrow-flight-client-examples/workflows/python-build/badge.svg)
 
 This lightweight Python client application connects to the Dremio Arrow Flight server endpoint. It requires the username and password for authentication. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
 > Note that: Trusted certificates must be provided when the tls option is enabled.
@@ -15,7 +15,7 @@ This lightweight Python client application connects to the Dremio Arrow Flight s
   - `python3 example.py -host '<DREMIO_HOST>' -user '<DREMIO_USERNAME>' -pass '<DREMIO_PASSWORD>'`
 
 ```
-usage: example.py [-h] [-host HOSTNAME] [-port FLIGHTPORT] -user USERNAME -pass PASSWORD [-query SQLQUERY] [-tls] [-certs TRUSTEDCERTIFICATES]
+usage: example.py [-h] [-host HOSTNAME] [-port FLIGHTPORT] -user USERNAME -pass PASSWORD [-query SQLQUERY] [-tls] [-certs TRUSTEDCERTIFICATES] [-sn SERVERNAME]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -26,4 +26,5 @@ optional arguments:
   -query SQLQUERY, --sqlquery SQLQUERY SQL query to test
   -tls, --tls Enable encrypted connection
   -certs TRUSTEDCERTIFICATES, --trustedCertificates TRUSTEDCERTIFICATES Path to trusted certificates for encrypted connection
+  -sn SERVERNAME, --servername SERVERNAME to override hostname with
 ```
