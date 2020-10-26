@@ -39,7 +39,7 @@ class TestExampleApplication(unittest.TestCase):
       connect_to_dremio_flight_server_endpoint("localhost",
         "12345", "dremio", "dremio123", False, False, False, False)
 
-    def test_non_existent_user (self):
+    def test_non_existent_user(self):
       pytest.xfail("Non-existent user.")
       connect_to_dremio_flight_server_endpoint("localhost",
         "32010", "noSuchUser", "dremio123", False, False, False, False)
