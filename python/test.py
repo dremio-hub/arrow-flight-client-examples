@@ -29,17 +29,17 @@ class TestExampleApplication(unittest.TestCase):
       connect_to_dremio_flight_server_endpoint("localhost",
         "32010", "dremio", "dremio123", query, False, False, False)
 
-    def test_bad_failure_bad_hostname(self):
+    def test_bad_hostname(self):
       pytest.xfail("Bad hostname.")
       connect_to_dremio_flight_server_endpoint("badHostNamE",
         "32010", "dremio", "dremio123", False, False, False, False)
 
-    def test_bad_failure_bad_port(self):
+    def test_bad_port(self):
       pytest.xfail("Bad port.")
       connect_to_dremio_flight_server_endpoint("localhost",
         "12345", "dremio", "dremio123", False, False, False, False)
 
-    def test_bad (self):
+    def test_non_existent_user (self):
       pytest.xfail("Non-existent user.")
       connect_to_dremio_flight_server_endpoint("localhost",
         "32010", "noSuchUser", "dremio123", False, False, False, False)
