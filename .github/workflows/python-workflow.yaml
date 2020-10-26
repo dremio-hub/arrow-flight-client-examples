@@ -52,7 +52,8 @@ jobs:
           flake8 example.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Sleep before test to ensure that Dremio is started
         run: |
-          sleep 240
+          sleep 180
+      # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
       - name: Test connection to Dremio Arrow Flight server endpoint
         run: |
           pytest test.py -v -s

@@ -22,24 +22,24 @@ from example import connect_to_dremio_flight_server_endpoint
 class TestExampleApplication(unittest.TestCase):
     def test_basic_auth(self):
       connect_to_dremio_flight_server_endpoint("localhost",
-        "32010", "dremio", "dremio123", False, False, False)
+        "32010", "dremio", "dremio123", False, False, False, False)
 
     def test_simple_query(self):
       query = "select * from (VALUES(1,2,3))"
       connect_to_dremio_flight_server_endpoint("localhost",
-        "32010", "dremio", "dremio123", query, False, False)
+        "32010", "dremio", "dremio123", query, False, False, False)
 
     def test_bad_failure_bad_hostname(self):
       pytest.xfail("Bad hostname.")
       connect_to_dremio_flight_server_endpoint("badHostNamE",
-        "32010", "dremio", "dremio123", False, False, False)
+        "32010", "dremio", "dremio123", False, False, False, False)
 
     def test_bad_failure_bad_port(self):
       pytest.xfail("Bad port.")
       connect_to_dremio_flight_server_endpoint("localhost",
-        "12345", "dremio", "dremio123", False, False, False)
+        "12345", "dremio", "dremio123", False, False, False, False)
 
     def test_bad (self):
       pytest.xfail("Non-existent user.")
       connect_to_dremio_flight_server_endpoint("localhost",
-        "32010", "noSuchUser", "dremio123", False, False, False)
+        "32010", "noSuchUser", "dremio123", False, False, False, False)
