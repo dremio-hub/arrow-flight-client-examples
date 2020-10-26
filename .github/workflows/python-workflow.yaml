@@ -53,10 +53,10 @@ jobs:
           flake8 example.py --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 example.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
       - name: Sleep before test to ensure that Dremio is started
         run: |
           sleep 180
-      # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
       - name: Test connection to Dremio Arrow Flight server endpoint
         run: |
           pytest test.py -v -s
