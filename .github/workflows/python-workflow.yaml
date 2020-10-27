@@ -1,3 +1,17 @@
+#  Copyright (C) 2017-2018 Dremio Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 # This workflow is based on the Github documentation workflow template.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/python-package.yml
 
@@ -23,16 +37,15 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
+        # PyArrow is currently not compatible with Python 3.9
+        # See: https://arrow.apache.org/docs/python/install.html#python-compatibility
         python-version: [3.5, 3.6, 3.7, 3.8]
 
     services:
       dremio:
         image: dremio/dremio-oss:latest
         ports:
-          - 9047:9047
-          - 31010:31010
           - 32010:32010
-          - 45678:45678
         env:
           DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"
 
@@ -50,9 +63,9 @@ jobs:
       - name: Lint with flake8
         run: |
           # Stop the build if there are Python syntax errors or undefined names
-          flake8 example.py --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 example.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
       - name: Sleep before test to ensure that Dremio is started
         run: |

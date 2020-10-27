@@ -15,7 +15,7 @@ This lightweight Python client application connects to the Dremio Arrow Flight s
   - `python3 example.py -host '<DREMIO_HOST>' -user '<DREMIO_USERNAME>' -pass '<DREMIO_PASSWORD>'`
 
 ```
-usage: example.py [-h] [-host HOSTNAME] [-port FLIGHTPORT] -user USERNAME -pass PASSWORD [-query SQLQUERY] [-tls] [-certs TRUSTEDCERTIFICATES] [-sn SERVERNAME]
+usage: example.py [-h] [-host HOSTNAME] [-port FLIGHTPORT] -user USERNAME -pass PASSWORD [-query SQLQUERY] [-tls] [-certs TRUSTEDCERTIFICATES]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -26,5 +26,4 @@ optional arguments:
   -query SQLQUERY, --sqlquery SQLQUERY SQL query to test
   -tls, --tls Enable encrypted connection
   -certs TRUSTEDCERTIFICATES, --trustedCertificates TRUSTEDCERTIFICATES Path to trusted certificates for encrypted connection
-  -sn SERVERNAME, --servername SERVERNAME to override hostname with
 ```
