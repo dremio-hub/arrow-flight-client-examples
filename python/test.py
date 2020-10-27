@@ -14,7 +14,6 @@
   limitations under the License.
 """
 
-import unittest
 import pytest
 
 from example import connect_to_dremio_flight_server_endpoint
