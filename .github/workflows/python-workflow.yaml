@@ -20,10 +20,10 @@ name: python-build
 on:
   push:
     branches: 
-      - main
+      - '**'
   pull_request:
     branches: 
-      - main
+      - '**'
   schedule:
     # This job runs every Monday at 9am PST.
     - cron: "0 16 * * 1"
