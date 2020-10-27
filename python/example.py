@@ -62,11 +62,13 @@ def parse_arguments():
       required=False, default=False, action='store_true')
     parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
+    parser.add_argument('-sn', '--servername', type=str,
+      help='Server name to override hostname with', required=False)
     return parser.parse_args()
 
 
 def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
-  tls, certs):
+  tls, certs, servername):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
@@ -89,6 +91,14 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
                 sys.exit()
+            # Override server name with a generic grpc option if an alternative server
+            # name is provided
+            if servername:
+                print('[INFO] Server name provided for TLS SNI')
+                connection_args["generic_options"] = [('grpc.ssl_target_name_override', servername)]
+            else:
+                print('[INFO] No server name provided for TLS SNI, using hostname')
+                connection_args["generic_options"] = [('grpc.ssl_target_name_override', hostname)]
 
         client = flight.FlightClient("{}://{}:{}".format(scheme, hostname, flightport),
           **connection_args)
@@ -128,4 +138,4 @@ if __name__ == "__main__":
     args = parse_arguments()
     # Connect to Dremio Arrow Flight server endpoint.
     connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username,
-      args.password, args.sqlquery, args.tls, args.trustedCertificates)
+      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.servername)
