@@ -1,0 +1,79 @@
+#  Copyright (C) 2017-2018 Dremio Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# This workflow is based on the Github documentation workflow template.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/python-package.yml
+
+name: python-build
+
+on:
+  push:
+    branches: 
+      - '**'
+  pull_request:
+    branches: 
+      - '**'
+  schedule:
+    # This job runs every Monday at 9am PST.
+    - cron: "0 16 * * 1"
+
+jobs:
+  test-with-dremio:
+    runs-on: ubuntu-latest
+    defaults:
+        run:
+          working-directory: python
+    strategy:
+      max-parallel: 4
+      matrix:
+        # PyArrow is currently not compatible with Python 3.9
+        # See: https://arrow.apache.org/docs/python/install.html#python-compatibility
+        python-version: [3.5, 3.6, 3.7, 3.8]
+
+    services:
+      dremio:
+        image: dremio/dremio-oss:latest
+        ports:
+          - 32010:32010
+        env:
+          DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          pip install -r requirements.txt
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
+      - name: Sleep before test to ensure that Dremio is started
+        run: |
+          sleep 180
+      - name: Test connection to Dremio Arrow Flight server endpoint
+        run: |
+          pytest test.py -v -s
+      - name: Print docker logs
+        if: ${{ failure() || cancelled() }} 
+        run: |
+          docker logs $(docker ps -aq)
