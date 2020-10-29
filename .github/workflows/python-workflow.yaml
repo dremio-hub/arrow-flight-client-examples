@@ -1,4 +1,4 @@
-#  Copyright (C) 2017-2018 Dremio Corporation
+#  Copyright (C) 2017-2020 Dremio Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ jobs:
       dremio:
         image: dremio/dremio-oss:latest
         ports:
+          - 9047:9047
           - 32010:32010
         env:
           DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"
@@ -58,7 +59,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest
+          pip install flake8 pytest requests
           pip install -r requirements.txt
       - name: Lint with flake8
         run: |
@@ -67,9 +68,9 @@ jobs:
           # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
-      - name: Sleep before test to ensure that Dremio is started
+      - name: Poll for Dremio readiness
         run: |
-          sleep 180
+          python readiness_check.py
       - name: Test connection to Dremio Arrow Flight server endpoint
         run: |
           pytest test.py -v -s
