@@ -1,5 +1,5 @@
 """
-  Copyright (C) 2017-2018 Dremio Corporation
+  Copyright (C) 2017-2020 Dremio Corporation
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import requests
 def timeout(seconds, error=os.strerror(errno.ETIMEDOUT)):
     """
     A timeout decorator for readiness check.
+    This function returns a decorator that wraps the function to timeout.
     """
     def decorator(func):
         def timeout_handler(signum, frame):
@@ -44,9 +45,9 @@ def timeout(seconds, error=os.strerror(errno.ETIMEDOUT)):
 
     return decorator
 
-# Set timeout to 3 minutes
-@timeout(180)
-def is_ready():
+# Set timeout to 5 minutes
+@timeout(300)
+def wait_for_ready():
     """
     A script to poll Dremio's readiness before proceeding to testing.
     """
@@ -59,8 +60,5 @@ def is_ready():
             time.sleep(5)
     print("Dremio server responded with status code 200. Proceeding to testing.")
 
-try:
-    # Poll for Dremio's readiness
-    is_ready()
-except Exception as exception:
-    raise exception
+# Poll for Dremio's readiness.
+wait_for_ready()
