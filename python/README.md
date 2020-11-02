@@ -8,7 +8,7 @@ This lightweight Python client application connects to the Dremio Arrow Flight s
 - Install and setup Python3 as `pyarrow` requires Python3
 - This client also requires `pyarrow` and `pandas`. Consider one of the dependency installation methods below. We recommend using `conda` for its ease of use.
 - Install dependencies using `conda`
-  - `conda install -c conda-forg --file requirements.txt`
+  - `conda install -c conda-forge --file requirements.txt`
 - Alternatively, install dependencies using `pip` 
   - `pip3 install -r requirements.txt`
 - Run the Python client:
