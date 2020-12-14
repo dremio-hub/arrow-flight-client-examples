@@ -1,5 +1,7 @@
 package com.adhoc.flight;
 
+import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -38,14 +40,22 @@ public class QueryRunner {
         AdhocFlightClient client = null;
         try {
             client = getFlightClient();
+            HeaderCallOption headerCallOption = getCallHeaders();
             PrintUtils.printRunQuery(ARGUMENTS.query);
-            PrintUtils.prettyPrintRows(client.runQuery(ARGUMENTS.query));
+            PrintUtils.prettyPrintRows(client.runQuery(ARGUMENTS.query, headerCallOption));
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
         } finally {
             AutoCloseables.close(client);
         }
+    }
+
+    // TODO: Update the method as needed to pass the Call Headers.
+    private static HeaderCallOption getCallHeaders() {
+        final FlightCallHeaders headers = new FlightCallHeaders();
+        headers.insert("schema", "Samples.\"samples.dremio.com\"");
+        return new HeaderCallOption(headers);
     }
 
     private static void parseCommandLineArgs(String[] args) {

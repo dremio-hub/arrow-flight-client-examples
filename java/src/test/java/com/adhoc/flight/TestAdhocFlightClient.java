@@ -62,7 +62,8 @@ public class TestAdhocFlightClient {
     @Test
     public void testSimpleQuery() throws Exception {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
-        client.runQuery(SIMPLE_QUERY);
+        // TODO: Pass a header option to test.
+        client.runQuery(SIMPLE_QUERY, null);
     }
 
     @Test

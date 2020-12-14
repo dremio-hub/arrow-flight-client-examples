@@ -19,10 +19,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
@@ -71,18 +73,18 @@ public class AdhocFlightClient implements AutoCloseable {
         return client.authenticateBasicToken(user, pass).get();
     }
 
-    private FlightInfo getFlightInfo(String query) {
+    private FlightInfo getFlightInfo(String query, CallOption... options) {
         return client.getInfo(
-                FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)), bearerToken);
+                FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)), options);
     }
 
-    private FlightStream getStream(FlightInfo flightInfo) {
-        return client.getStream(flightInfo.getEndpoints().get(0).getTicket(), bearerToken);
+    private FlightStream getStream(FlightInfo flightInfo, CallOption... options) {
+        return client.getStream(flightInfo.getEndpoints().get(0).getTicket(), options);
     }
 
-    public List<Object[]> runQuery(String query) throws Exception {
-        final FlightInfo flightInfo = getFlightInfo(query);
-        final FlightStream stream = getStream(flightInfo);
+    public List<Object[]> runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
+        final FlightInfo flightInfo = getFlightInfo(query, bearerToken, headerCallOption);
+        final FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption);
         final List<Object[]> values = new ArrayList<>();
         final List<Field> fields = stream.getSchema().getFields();
         final int columnCount = fields.size();
