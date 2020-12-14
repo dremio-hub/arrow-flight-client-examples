@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>adhoc</groupId>
-    <artifactId>java-flight-client</artifactId>
+    <artifactId>java-flight-sample-client-application</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 

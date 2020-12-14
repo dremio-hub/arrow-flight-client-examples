@@ -45,7 +45,6 @@ jobs:
         image: dremio/dremio-oss:latest
         ports:
           - 9047:9047
-          - 31010:31010
           - 32010:32010
         env:
           DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"

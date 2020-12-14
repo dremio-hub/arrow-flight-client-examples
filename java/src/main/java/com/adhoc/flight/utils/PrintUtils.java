@@ -32,6 +32,7 @@ public class PrintUtils {
                     System.out.print(",");
                 }
             }
+            System.out.println();
         }
         System.out.println("\n--------------------------------------------------------------");
     }
