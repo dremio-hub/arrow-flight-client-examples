@@ -18,8 +18,11 @@ package com.adhoc.flight;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
+import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -41,6 +44,15 @@ public class TestAdhocFlightClient {
     private static final String PASSWORD = "dremio123";
     public static final String SIMPLE_QUERY = "select * from (VALUES(1,2,3),(4,5,6))";
 
+    public static final String DEFAULT_SCHEMA_PATH = "$scratch";
+    public static final String DEFAULT_ROUTING_TAG = "test-routing-tag";
+    public static final String DEFAULT_ROUTING_QUEUE = "Low Cost User Queries";
+
+    public static final String CREATE_TABLE = "create table $scratch.simple_table as " + SIMPLE_QUERY;
+    public static final String CREATE_TABLE_NO_SCHEMA = "create table $scratch.simple_table as " + SIMPLE_QUERY;
+    public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
+    public static final String DROP_TABLE = "drop table $scratch.simple_table";
+
     private AdhocFlightClient client;
     private BufferAllocator allocator;
 
@@ -59,11 +71,80 @@ public class TestAdhocFlightClient {
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
 
+    /**
+     * Creates a new FlightClient with no client properties set during authentication.
+     *
+     * @param host the Drmeio host.
+     * @param port the port Dremio Flight Server Endpoint is running on.
+     * @param user the Dremio username.
+     * @param pass the password corresponding to the Dremio username provided.
+     */
+    private void createBasicFlightClient(String host, int port, String user, String pass) {
+        createBasicFlightClient(host, port, user, pass, null);
+    }
+
+    /**
+     * Creates a new FlightClient with client properties set during authentication.
+     *
+     * @param host the Drmeio host.
+     * @param port the port Dremio Flight Server Endpoint is running on.
+     * @param user the Dremio username.
+     * @param pass the password corresponding to the Dremio username provided.
+     * @param clientProperties Dremio client properties to set during authentication.
+     */
+    private void createBasicFlightClient(String host, int port,
+                                         String user, String pass,
+                                         HeaderCallOption clientProperties) {
+        client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, clientProperties);
+    }
+
     @Test
     public void testSimpleQuery() throws Exception {
+        // Create FlightClient connecting to Dremio.
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
-        // TODO: Pass a header option to test.
+
+        // Select
         client.runQuery(SIMPLE_QUERY, null);
+    }
+
+    @Test
+    public void testSimpleQueryWithClientPropertiesDuringAuth() throws Exception {
+        // Create HeaderCallOption to transport Dremio client properties.
+        final CallHeaders callHeaders = new FlightCallHeaders();
+        callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
+        callHeaders.insert("routing_tag", DEFAULT_ROUTING_TAG);
+        callHeaders.insert("routing_queue", DEFAULT_ROUTING_QUEUE);
+        final HeaderCallOption clientProperties = new HeaderCallOption(callHeaders);
+
+        // Create FlightClient connecting to Dremio.
+        createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, clientProperties);
+
+        // Create table
+        client.runQuery(CREATE_TABLE_NO_SCHEMA, null);
+
+        // Select
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null);
+
+        // Drop table
+        client.runQuery(DROP_TABLE, null);
+    }
+
+    @Test
+    public void testSimpleQueryWithDefaultSchemaPath() throws Exception {
+        // Create FlightClient connecting to Drmeio.
+        createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
+
+        // Create table
+        client.runQuery(CREATE_TABLE, null);
+
+        // Select
+        final CallHeaders callHeaders = new FlightCallHeaders();
+        callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
+        final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption);
+
+        // Drop table
+        client.runQuery(DROP_TABLE, null);
     }
 
     @Test
@@ -93,9 +174,5 @@ public class TestAdhocFlightClient {
                 () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
         assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
 
-    }
-
-    private void createBasicFlightClient(String host, int port, String user, String pass) {
-        client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass);
     }
 }

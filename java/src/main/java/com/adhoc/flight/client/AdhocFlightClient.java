@@ -17,7 +17,9 @@ package com.adhoc.flight.client;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -26,6 +28,9 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -47,33 +52,62 @@ public class AdhocFlightClient implements AutoCloseable {
         this.bearerToken = bearerToken;
     }
 
-    public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator, String host, int port,
-                                                       String user, String pass, String keyStorePath,
-                                                       String keyStorePass) throws Exception {
+    public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
+                                                       String host, int port,
+                                                       String user, String pass,
+                                                       String keyStorePath,
+                                                       String keyStorePass,
+                                                       HeaderCallOption clientProperties) throws Exception {
+        final ClientIncomingAuthHeaderMiddleware.Factory factory =
+                new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
         final FlightClient client = FlightClient.builder()
                 .allocator(allocator)
                 .location(Location.forGrpcTls(host, port))
+                .intercept(factory)
                 .useTls()
                 .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
                         keyStorePath, keyStorePass))
                 .build();
-        return new AdhocFlightClient(client, authenticate(client, user, pass));
+        return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
     }
 
-    public static AdhocFlightClient getBasicClient(BufferAllocator allocator, String host, int port,
-                                                   String user, String pass) {
+    public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
+                                                   String host, int port,
+                                                   String user, String pass,
+                                                   HeaderCallOption clientProperties) {
+        final ClientIncomingAuthHeaderMiddleware.Factory factory =
+                new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
         final FlightClient client = FlightClient.builder()
                 .allocator(allocator)
                 .location(Location.forGrpcInsecure(host, port))
+                .intercept(factory)
                 .build();
-        return new AdhocFlightClient(client, authenticate(client, user, pass));
+        return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
     }
 
-    private static CredentialCallOption authenticate(FlightClient client, String user, String pass) {
-        return client.authenticateBasicToken(user, pass).get();
+    public static CredentialCallOption authenticate(FlightClient client,
+                                                    String user, String pass,
+                                                    ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                    HeaderCallOption clientProperties) {
+
+        final List<CallOption> callOptions = new ArrayList<>();
+
+        // Add CredentialCallOption for authentication.
+        callOptions.add(new CredentialCallOption(new BasicAuthCredentialWriter(user, pass)));
+
+        // If provided, add client properties to CallOptions
+        if (clientProperties != null) {
+            callOptions.add(clientProperties);
+        }
+
+        // Perform handshake
+        client.handshake(callOptions.toArray(new CallOption[callOptions.size()]));
+        return factory.getCredentialCallOption();
     }
 
-    private FlightInfo getFlightInfo(String query, CallOption... options) {
+    private FlightInfo getFlightInfo(String query, CallOption ... options) {
         return client.getInfo(
                 FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)), options);
     }

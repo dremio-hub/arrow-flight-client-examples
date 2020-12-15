@@ -1,5 +1,9 @@
 package com.adhoc.flight;
 
+import java.util.List;
+import java.util.Map;
+
+import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
@@ -12,6 +16,7 @@ import com.adhoc.flight.utils.PrintUtils;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Java Adhoc Flight sample application that runs the specified query.
@@ -20,18 +25,22 @@ public class QueryRunner {
     private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
     private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
-    private static AdhocFlightClient getFlightClient() throws Exception {
+    private static AdhocFlightClient getFlightClient(HeaderCallOption clientProperties) throws Exception {
         if (ARGUMENTS.enableTls) {
             Preconditions.checkNotNull(ARGUMENTS.keystorePath,
                     "When TLS is enabled, path to the KeyStore is required.");
             Preconditions.checkNotNull(ARGUMENTS.keystorePass,
                     "When TLS is enabled, the KeyStore password is required.");
-            return AdhocFlightClient.getEncryptedClient(
-                    BUFFER_ALLOCATOR, ARGUMENTS.host, ARGUMENTS.port, ARGUMENTS.user, ARGUMENTS.pass,
-                    ARGUMENTS.keystorePath, ARGUMENTS.keystorePass);
+            return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
+                    ARGUMENTS.host, ARGUMENTS.port,
+                    ARGUMENTS.user, ARGUMENTS.pass,
+                    ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
+                    clientProperties);
         } else {
-            return AdhocFlightClient.getBasicClient(
-                    BUFFER_ALLOCATOR, ARGUMENTS.host, ARGUMENTS.port, ARGUMENTS.user, ARGUMENTS.pass);
+            return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
+                    ARGUMENTS.host, ARGUMENTS.port,
+                    ARGUMENTS.user, ARGUMENTS.pass,
+                    clientProperties);
         }
     }
 
@@ -39,10 +48,35 @@ public class QueryRunner {
         parseCommandLineArgs(args);
         AdhocFlightClient client = null;
         try {
-            client = getFlightClient();
-            HeaderCallOption headerCallOption = getCallHeaders();
+            /**
+             * Authentication
+             */
+            // Set routing-tag and routing-queue during initial authentication.
+            final Map<String, String> properties = ImmutableMap.of(
+                    "routing-tag", "test-routing-tag",
+                    "routing-queue", "Low Cost User Queries");
+            final HeaderCallOption routingCallOption = getClientProperties(properties);
+
+            // Authenticates FlightClient with routing properties.
+            client = getFlightClient(routingCallOption);
+
+            /**
+             * Run Query
+             */
+            // Set default schema path to "postgres.tpch" for the next FlightRPC request.
+            final Map<String, String> schemaProperty = ImmutableMap.of(
+                    "schema", "postgres.tpch");
+            final HeaderCallOption schemaCallOption = getClientProperties(schemaProperty);
+
+            // Run query "select * from nation"
+            final List<Object[]> results = client.runQuery(ARGUMENTS.query, schemaCallOption);
+
+            /**
+             * Print Results
+             */
+            // Print query and results.
             PrintUtils.printRunQuery(ARGUMENTS.query);
-            PrintUtils.prettyPrintRows(client.runQuery(ARGUMENTS.query, headerCallOption));
+            PrintUtils.prettyPrintRows(results);
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
@@ -51,11 +85,10 @@ public class QueryRunner {
         }
     }
 
-    // TODO: Update the method as needed to pass the Call Headers.
-    private static HeaderCallOption getCallHeaders() {
-        final FlightCallHeaders headers = new FlightCallHeaders();
-        headers.insert("schema", "Samples.\"samples.dremio.com\"");
-        return new HeaderCallOption(headers);
+    private static HeaderCallOption getClientProperties(Map<String, String> properties) {
+        final CallHeaders callHeaders = new FlightCallHeaders();
+        properties.forEach(callHeaders::insert);
+        return new HeaderCallOption(callHeaders);
     }
 
     private static void parseCommandLineArgs(String[] args) {
