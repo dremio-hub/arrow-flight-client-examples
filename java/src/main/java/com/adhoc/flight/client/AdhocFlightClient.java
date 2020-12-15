@@ -17,9 +17,7 @@ package com.adhoc.flight.client;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -41,7 +39,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import com.adhoc.flight.utils.PrintUtils;
 
 /**
- * Adhoc Flight Client.
+ * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
+ * CredentialCallOption with a bearer token for subsequent FlightRPC requests.
  */
 public class AdhocFlightClient implements AutoCloseable {
     private final FlightClient client;
@@ -52,6 +51,21 @@ public class AdhocFlightClient implements AutoCloseable {
         this.bearerToken = bearerToken;
     }
 
+    /**
+     * Creates a FlightClient connected to the Dremio server with encrypted TLS connection.
+     *
+     * @param allocator the BufferAllocator.
+     * @param host the Dremio host.
+     * @param port the Dremio port where Flight Server Endpoint is running on.
+     * @param user the Dremio username.
+     * @param pass the corresponding password.
+     * @param keyStorePath path to the JKS.
+     * @param keyStorePass the password to the JKS.
+     * @param clientProperties the client properties to set during authentication.
+     * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
+     *         with bearer token for subsequent FlightRPC requests.
+     * @throws Exception RuntimeException if unable to access JKS with provided information.
+     */
     public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
                                                        String host, int port,
                                                        String user, String pass,
@@ -72,6 +86,18 @@ public class AdhocFlightClient implements AutoCloseable {
         return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
     }
 
+    /**
+     * Creates a FlightClient connected to the Dremio server with an unencrypted connection.
+     *
+     * @param allocator the BufferAllocator.
+     * @param host the Dremio host.
+     * @param port the Dremio port where Flight Server Endpoint is running on.
+     * @param user the Dremio username.
+     * @param pass the corresponding password.
+     * @param clientProperties the client properties to set during authentication.
+     * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
+     *         with bearer token for subsequent FlightRPC requests.
+     */
     public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
                                                    String host, int port,
                                                    String user, String pass,
@@ -87,11 +113,20 @@ public class AdhocFlightClient implements AutoCloseable {
         return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
     }
 
+    /**
+     * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server Endpoint.
+     *
+     * @param client the FlightClient instance to connect to Dremio.
+     * @param user the Dremio username.
+     * @param pass the corresponding Dremio password
+     * @param factory the factory to create ClientIncomingAuthHeaderMiddleware.
+     * @param clientProperties client properties to set during authentication.
+     * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
+     */
     public static CredentialCallOption authenticate(FlightClient client,
                                                     String user, String pass,
                                                     ClientIncomingAuthHeaderMiddleware.Factory factory,
                                                     HeaderCallOption clientProperties) {
-
         final List<CallOption> callOptions = new ArrayList<>();
 
         // Add CredentialCallOption for authentication.
@@ -107,17 +142,41 @@ public class AdhocFlightClient implements AutoCloseable {
         return factory.getCredentialCallOption();
     }
 
-    private FlightInfo getFlightInfo(String query, CallOption ... options) {
-        return client.getInfo(
-                FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)), options);
+    /**
+     * Make a FlightRPC getInfo request with the given query and client properties.
+     *
+     * @param query the query to retrieve FlightInfo for.
+     * @param options the client properties to execute this request with.
+     * @return a FlightInfo object.
+     */
+    public FlightInfo getInfo(String query, CallOption ... options) {
+        return client.getInfo(FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)), options);
     }
 
-    private FlightStream getStream(FlightInfo flightInfo, CallOption... options) {
+    /**
+     * Make a FlightRPC getStream request based on the provided FlightInfo object. Retrieves
+     * result of the query previously prepared with getInfo.
+     *
+     * @param flightInfo the FlightInfo object encapsulating information for the server to identify
+     *                   the prepared statement with.
+     * @param options the client properties to execute this request with.
+     * @return a stream of results.
+     */
+    public FlightStream getStream(FlightInfo flightInfo, CallOption... options) {
         return client.getStream(flightInfo.getEndpoints().get(0).getTicket(), options);
     }
 
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param headerCallOption client properties to execute provided SQL query with.
+     * @return query results as a list of Object arrays.
+     * @throws Exception if error occurs during query execution.
+     */
     public List<Object[]> runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
-        final FlightInfo flightInfo = getFlightInfo(query, bearerToken, headerCallOption);
+        final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
         final FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption);
         final List<Object[]> values = new ArrayList<>();
         final List<Field> fields = stream.getSchema().getFields();

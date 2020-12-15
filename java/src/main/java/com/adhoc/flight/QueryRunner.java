@@ -19,91 +19,11 @@ import com.beust.jcommander.ParameterException;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * Java Adhoc Flight sample application that runs the specified query.
+ * Java Flight sample application that runs the specified query.
  */
 public class QueryRunner {
     private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
     private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
-
-    private static AdhocFlightClient getFlightClient(HeaderCallOption clientProperties) throws Exception {
-        if (ARGUMENTS.enableTls) {
-            Preconditions.checkNotNull(ARGUMENTS.keystorePath,
-                    "When TLS is enabled, path to the KeyStore is required.");
-            Preconditions.checkNotNull(ARGUMENTS.keystorePass,
-                    "When TLS is enabled, the KeyStore password is required.");
-            return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
-                    ARGUMENTS.host, ARGUMENTS.port,
-                    ARGUMENTS.user, ARGUMENTS.pass,
-                    ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
-                    clientProperties);
-        } else {
-            return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
-                    ARGUMENTS.host, ARGUMENTS.port,
-                    ARGUMENTS.user, ARGUMENTS.pass,
-                    clientProperties);
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-        parseCommandLineArgs(args);
-        AdhocFlightClient client = null;
-        try {
-            /**
-             * Authentication
-             */
-            // Set routing-tag and routing-queue during initial authentication.
-            final Map<String, String> properties = ImmutableMap.of(
-                    "routing-tag", "test-routing-tag",
-                    "routing-queue", "Low Cost User Queries");
-            final HeaderCallOption routingCallOption = getClientProperties(properties);
-
-            // Authenticates FlightClient with routing properties.
-            client = getFlightClient(routingCallOption);
-
-            /**
-             * Run Query
-             */
-            // Set default schema path to "postgres.tpch" for the next FlightRPC request.
-            final Map<String, String> schemaProperty = ImmutableMap.of(
-                    "schema", "postgres.tpch");
-            final HeaderCallOption schemaCallOption = getClientProperties(schemaProperty);
-
-            // Run query "select * from nation"
-            final List<Object[]> results = client.runQuery(ARGUMENTS.query, schemaCallOption);
-
-            /**
-             * Print Results
-             */
-            // Print query and results.
-            PrintUtils.printRunQuery(ARGUMENTS.query);
-            PrintUtils.prettyPrintRows(results);
-        } catch (Exception ex) {
-            System.out.println("[ERROR] Exception: " + ex.getMessage());
-            ex.printStackTrace();
-        } finally {
-            AutoCloseables.close(client);
-        }
-    }
-
-    private static HeaderCallOption getClientProperties(Map<String, String> properties) {
-        final CallHeaders callHeaders = new FlightCallHeaders();
-        properties.forEach(callHeaders::insert);
-        return new HeaderCallOption(callHeaders);
-    }
-
-    private static void parseCommandLineArgs(String[] args) {
-        JCommander jCommander = new JCommander(QueryRunner.ARGUMENTS);
-        jCommander.setProgramName("Java Adhoc Client");
-        try {
-            jCommander.parse(args);
-        } catch (ParameterException e) {
-            System.out.println("\n" + e.getMessage() + "\n");
-            jCommander.usage();
-        }
-        if (QueryRunner.ARGUMENTS.help) {
-            jCommander.usage();
-        }
-    }
 
     static class CommandLineArguments {
         @Parameter(names = {"-host", "--hostname"},
@@ -142,5 +62,104 @@ public class QueryRunner {
         @Parameter(names = {"-h", "--help"},
                 description = "show usage", help=true)
         public boolean help = false;
+    }
+
+    public static void main(String[] args) throws Exception {
+        parseCommandLineArgs(args);
+        AdhocFlightClient client = null;
+        try {
+            /**
+             * Authentication
+             */
+            // Set routing-tag and routing-queue during initial authentication.
+            final Map<String, String> properties = ImmutableMap.of(
+                    "routing-tag", "test-routing-tag",
+                    "routing-queue", "Low Cost User Queries");
+            final HeaderCallOption routingCallOption = createClientProperties(properties);
+
+            // Authenticates FlightClient with routing properties.
+            client = createFlightClient(routingCallOption);
+
+            /**
+             * Run Query
+             */
+            // Set default schema path to "postgres.tpch" for the next FlightRPC request.
+            final Map<String, String> schemaProperty = ImmutableMap.of(
+                    "schema", "postgres.tpch");
+            final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
+
+            // Run query "select * from nation"
+            final List<Object[]> results = client.runQuery(ARGUMENTS.query, schemaCallOption);
+
+            /**
+             * Print Results
+             */
+            PrintUtils.printRunQuery(ARGUMENTS.query);
+            PrintUtils.prettyPrintRows(results);
+        } catch (Exception ex) {
+            System.out.println("[ERROR] Exception: " + ex.getMessage());
+            ex.printStackTrace();
+        } finally {
+            AutoCloseables.close(client);
+        }
+    }
+
+    /**
+     * Creates a FlightClient instance based on command line arguments provided.
+     *
+     * @param clientProperties Dremio client properties.
+     * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
+     *         and the CredentialCallOption with a bearer token to use in subsequent requests.
+     * @throws Exception if there are issues connecting to the server.
+     */
+    private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+        if (ARGUMENTS.enableTls) {
+            Preconditions.checkNotNull(ARGUMENTS.keystorePath,
+                    "When TLS is enabled, path to the KeyStore is required.");
+            Preconditions.checkNotNull(ARGUMENTS.keystorePass,
+                    "When TLS is enabled, the KeyStore password is required.");
+            return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
+                    ARGUMENTS.host, ARGUMENTS.port,
+                    ARGUMENTS.user, ARGUMENTS.pass,
+                    ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
+                    clientProperties);
+        } else {
+            return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
+                    ARGUMENTS.host, ARGUMENTS.port,
+                    ARGUMENTS.user, ARGUMENTS.pass,
+                    clientProperties);
+        }
+    }
+
+    /**
+     * Given a map of client properties strings, insert each entry into a Flight CallHeaders object.
+     * Then return an instance of HeaderCallOption encapsulating the CallHeaders with Dremio client
+     * properties.
+     *
+     * @param clientProperties Dremio client properties.
+     * @return a HeaderCallOption encapsulating provided key, value property pairs.
+     */
+    private static HeaderCallOption createClientProperties(Map<String, String> clientProperties) {
+        final CallHeaders callHeaders = new FlightCallHeaders();
+        clientProperties.forEach(callHeaders::insert);
+        return new HeaderCallOption(callHeaders);
+    }
+
+    /**
+     * Parses command line arguments.
+     * @param args command line arguments to parse.
+     */
+    private static void parseCommandLineArgs(String[] args) {
+        JCommander jCommander = new JCommander(QueryRunner.ARGUMENTS);
+        jCommander.setProgramName("Java Adhoc Client");
+        try {
+            jCommander.parse(args);
+        } catch (ParameterException e) {
+            System.out.println("\n" + e.getMessage() + "\n");
+            jCommander.usage();
+        }
+        if (QueryRunner.ARGUMENTS.help) {
+            jCommander.usage();
+        }
     }
 }
