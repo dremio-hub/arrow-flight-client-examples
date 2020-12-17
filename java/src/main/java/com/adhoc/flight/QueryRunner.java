@@ -25,6 +25,12 @@ public class QueryRunner {
     private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
     private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
+    private static final String CREATE_DEMO_TABLE =
+            "CREATE TABLE $scratch.dremio_flight_demo_table as select * from (VALUES(1,2,3),(4,5,6))";
+    private static final String DROP_DEMO_TABLE = "DROP TABLE $scratch.dremio_flight_demo_table";
+    private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
+    private static final String DEMO_TABLE_SCHEMA = "$scratch";
+
     static class CommandLineArguments {
         @Parameter(names = {"-host", "--hostname"},
                 description = "Dremio co-ordinator hostname")
@@ -43,8 +49,7 @@ public class QueryRunner {
         public String pass = "dremio123";
 
         @Parameter(names = {"-query", "--sqlQuery"},
-                description = "SQL query to test",
-                required = true)
+                description = "SQL query to test")
         public String query = null;
 
         @Parameter(names = {"-tls", "--tls"},
@@ -59,37 +64,96 @@ public class QueryRunner {
                 description = "The jks keystore password")
         public String keystorePass = null;
 
+        @Parameter(names = {"-demo", "--runDemo"},
+                description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
+        public boolean runDemo = false;
+
         @Parameter(names = {"-h", "--help"},
                 description = "show usage", help=true)
         public boolean help = false;
     }
 
-    public static void main(String[] args) throws Exception {
-        parseCommandLineArgs(args);
+    public static void runDemo() throws Exception {
         AdhocFlightClient client = null;
+
         try {
+            System.out.println("\n[INFO] Running demo to query Dremio Flight Server Endpoint.");
+            System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + ARGUMENTS.host);
+            System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + ARGUMENTS.port);
+
             /**
              * Authentication
              */
+            System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
+                    "authorization header authentication.");
+            System.out.println("[INFO] Initial UserSession client properties are set as well.");
+            System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
+            System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
+
             // Set routing-tag and routing-queue during initial authentication.
             final Map<String, String> properties = ImmutableMap.of(
                     "routing-tag", "test-routing-tag",
                     "routing-queue", "Low Cost User Queries");
             final HeaderCallOption routingCallOption = createClientProperties(properties);
-
             // Authenticates FlightClient with routing properties.
             client = createFlightClient(routingCallOption);
+            PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
+
+            /**
+             * Create a new table in $scratch
+             */
+            System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
+            client.runQuery(CREATE_DEMO_TABLE, null);
+            System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
 
             /**
              * Run Query
              */
-            // Set default schema path to "postgres.tpch" for the next FlightRPC request.
-            final Map<String, String> schemaProperty = ImmutableMap.of(
-                    "schema", "postgres.tpch");
-            final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
+            System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
+            System.out.println("[INFO] Setting client property: schema => $scratch");
+            PrintUtils.printRunQuery(SELECT_DEMO_TABLE);
 
-            // Run query "select * from nation"
-            final List<Object[]> results = client.runQuery(ARGUMENTS.query, schemaCallOption);
+            // Set default schema path to "$scratch" for the next FlightRPC request.
+            final Map<String, String> schemaProperty = ImmutableMap.of(
+                    "schema", DEMO_TABLE_SCHEMA);
+            final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
+            // Run query "select * from dremio_flight_demo_table" without schema path.
+            final List<Object[]> results = client.runQuery(SELECT_DEMO_TABLE, schemaCallOption);
+
+            /**
+             * Print Results
+             */
+            System.out.println("[INFO] [STEP 4]: Iterate through query results.");
+            PrintUtils.prettyPrintRows(results);
+            System.out.println();
+
+            /**
+             * Drop Demo Table
+             */
+            System.out.println("[INFO] [STEP 5]: Drop demo table.");
+            client.runQuery(DROP_DEMO_TABLE, schemaCallOption);
+            System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
+        } catch (Exception ex) {
+            System.out.println("[ERROR] Exception: " + ex.getMessage());
+            ex.printStackTrace();
+        } finally {
+            AutoCloseables.close(client);
+        }
+    }
+
+    public static void runAdhoc() throws Exception {
+        AdhocFlightClient client = null;
+        try {
+            /**
+             * Authentication
+             */
+            client = createFlightClient(null);
+            PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
+
+            /**
+             * Run Query
+             */
+            final List<Object[]> results = client.runQuery(ARGUMENTS.query, null);
 
             /**
              * Print Results
@@ -101,6 +165,16 @@ public class QueryRunner {
             ex.printStackTrace();
         } finally {
             AutoCloseables.close(client);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        parseCommandLineArgs(args);
+
+        if (ARGUMENTS.runDemo) {
+            runDemo();
+        } else {
+            runAdhoc();
         }
     }
 

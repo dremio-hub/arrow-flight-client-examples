@@ -21,7 +21,13 @@ import java.util.List;
  * Helper class to print output to console.
  */
 public class PrintUtils {
+    public static void prettyPrintAuthenticationSuccess(String host, int port) {
+        System.out.println("[INFO] Authenticated with Dremio server at " + host + ":" + port
+                + " successfully.");
+    }
+
     public static void prettyPrintRows(List<Object[]> rows) {
+        System.out.println("[INFO] Printing query results from Dremio.");
         System.out.println("-----------------"
                 + " Total number of records: " + rows.size()
                 + " -----------------");
@@ -34,14 +40,14 @@ public class PrintUtils {
             }
             System.out.println();
         }
-        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("--------------------------------------------------------------");
     }
 
     public static void printRunQuery(String query) {
-        System.out.println("Running Query: " + query);
+        System.out.println("[INFO] Running Query: " + query);
     }
 
     public static void printExceptionOnClosed(Exception ex) {
-        System.out.println("Encountered exception while closing client, exception: " + ex.getMessage());
+        System.out.println("[ERROR] Encountered exception while closing client, exception: " + ex.getMessage());
     }
 }
