@@ -1,10 +1,11 @@
 # Java Arrow Flight Client Application Example
+![Build Status](https://github.com/dremio-hub/arrow-flight-client-examples/workflows/java-build/badge.svg)
 
-###Pre-requisites
+### Pre-requisites
 - Java 8 
 - Maven 3.5 or above
 
-###Steps to run this sample application
+### Steps to run this sample application
 - Clone this repository.
 - Navigate to arrow-flight-client-examples/java.
 - Build the sample application on the command line with:
