@@ -2,6 +2,7 @@
 
 ###Pre-requisites
 - Java 8 
+- Maven 3.5 or above
 
 ###Steps to run this sample application
 - Clone this repository.
