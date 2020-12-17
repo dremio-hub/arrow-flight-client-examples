@@ -73,6 +73,11 @@ public class QueryRunner {
         public boolean help = false;
     }
 
+    /**
+     * Runs a self contained demo to authenticate and query a Dremio Flight Server Endpoint.
+     *
+     * @throws Exception
+     */
     public static void runDemo() throws Exception {
         AdhocFlightClient client = null;
 
@@ -100,14 +105,14 @@ public class QueryRunner {
             PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
-             * Create a new table in $scratch
+             * Create demo table in $scratch
              */
             System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
             client.runQuery(CREATE_DEMO_TABLE, null);
             System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
 
             /**
-             * Run Query
+             * Query demo table
              */
             System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
             System.out.println("[INFO] Setting client property: schema => $scratch");
@@ -141,6 +146,14 @@ public class QueryRunner {
         }
     }
 
+    /**
+     * An adhoc method to run a user query.
+     *
+     * Note: This adhoc does not use any client properties.
+     *       Please See demo above for client properties usage.
+     *
+     * @throws Exception
+     */
     public static void runAdhoc() throws Exception {
         AdhocFlightClient client = null;
         try {
