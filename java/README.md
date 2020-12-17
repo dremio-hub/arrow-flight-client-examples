@@ -1,4 +1,4 @@
-# [Draft] Java Arrow Flight Client Application Example
+# Java Arrow Flight Client Application Example
 
 ###Pre-requisites
 - Java 8 
