@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2017-2020 Dremio Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.adhoc.flight;
 
 import java.util.List;
@@ -76,32 +91,37 @@ public class QueryRunner {
     /**
      * Runs a self contained demo to authenticate and query a Dremio Flight Server Endpoint.
      *
-     * @throws Exception
+     * @throws Exception If there are issues running queries against the Dremio Arrow Flight
+     *                   Server Endpoint.
+     *         - FlightRuntimeError with Flight status code:
+     *         - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+     *         - INVALID_ARGUMENT: issues parsing query input.
+     *         - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
+     *         - UNAVAILABLE: Drmeio resource is not available.
+     *         - TIMED_OUT: timed out trying to access Dremio resources.
      */
     public static void runDemo() throws Exception {
-        AdhocFlightClient client = null;
+        System.out.println("\n[INFO] Running demo to query Dremio Flight Server Endpoint.");
+        System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + ARGUMENTS.host);
+        System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + ARGUMENTS.port);
 
-        try {
-            System.out.println("\n[INFO] Running demo to query Dremio Flight Server Endpoint.");
-            System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + ARGUMENTS.host);
-            System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + ARGUMENTS.port);
+        /**
+         * Authentication
+         */
+        System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
+                "authorization header authentication.");
+        System.out.println("[INFO] Initial UserSession client properties are set as well.");
+        System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
+        System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
 
-            /**
-             * Authentication
-             */
-            System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
-                    "authorization header authentication.");
-            System.out.println("[INFO] Initial UserSession client properties are set as well.");
-            System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
-            System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
+        // Set routing-tag and routing-queue during initial authentication.
+        final Map<String, String> properties = ImmutableMap.of(
+                "routing-tag", "test-routing-tag",
+                "routing-queue", "Low Cost User Queries");
+        final HeaderCallOption routingCallOption = createClientProperties(properties);
 
-            // Set routing-tag and routing-queue during initial authentication.
-            final Map<String, String> properties = ImmutableMap.of(
-                    "routing-tag", "test-routing-tag",
-                    "routing-queue", "Low Cost User Queries");
-            final HeaderCallOption routingCallOption = createClientProperties(properties);
-            // Authenticates FlightClient with routing properties.
-            client = createFlightClient(routingCallOption);
+        // Authenticates FlightClient with routing properties.
+        try (final AdhocFlightClient client = createFlightClient(routingCallOption)) {
             PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
@@ -141,8 +161,6 @@ public class QueryRunner {
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
-        } finally {
-            AutoCloseables.close(client);
         }
     }
 
@@ -152,15 +170,21 @@ public class QueryRunner {
      * Note: This adhoc does not use any client properties.
      *       Please See demo above for client properties usage.
      *
-     * @throws Exception
+     * @throws Exception If there are issues running queries against the Dremio Arrow Flight
+     *                   Server Endpoint.
+     *         - FlightRuntimeError with Flight status code:
+     *         - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+     *         - INVALID_ARGUMENT: issues parsing query input.
+     *         - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
+     *         - UNAVAILABLE: Drmeio resource is not available.
+     *         - TIMED_OUT: timed out trying to access Dremio resources.
      */
     public static void runAdhoc() throws Exception {
-        AdhocFlightClient client = null;
-        try {
+
+        try (final AdhocFlightClient client = createFlightClient(null)) {
             /**
              * Authentication
              */
-            client = createFlightClient(null);
             PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
@@ -176,8 +200,6 @@ public class QueryRunner {
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
-        } finally {
-            AutoCloseables.close(client);
         }
     }
 
@@ -199,7 +221,14 @@ public class QueryRunner {
      * @param clientProperties Dremio client properties.
      * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
      *         and the CredentialCallOption with a bearer token to use in subsequent requests.
-     * @throws Exception if there are issues connecting to the server.
+     * @throws Exception If there are issues running queries against the Dremio Arrow Flight
+     *                   Server Endpoint.
+     *         - FlightRuntimeError with Flight status code:
+     *         - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+     *         - INVALID_ARGUMENT: issues parsing query input.
+     *         - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
+     *         - UNAVAILABLE: Drmeio resource is not available.
+     *         - TIMED_OUT: timed out trying to access Dremio resources.
      */
     private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
         if (ARGUMENTS.enableTls) {
