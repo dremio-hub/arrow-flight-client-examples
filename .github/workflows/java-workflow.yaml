@@ -1,0 +1,74 @@
+#  Copyright (C) 2017-2020 Dremio Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# This workflow is based on the Github documentation workflow template.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/java-package.yml
+
+name: java-build
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  schedule:
+    # This job runs every Monday at 9am PST.
+    - cron: "0 16 * * 1"
+
+jobs:
+  test-with-dremio-java:
+    runs-on: ubuntu-latest
+    defaults:
+        run:
+          working-directory: java
+    strategy:
+      matrix:
+        # Python is needed for readiness check.
+        python-version: [3.8]
+        java-version: [1.8]
+
+    services:
+      dremio:
+        image: dremio/dremio-oss:latest
+        ports:
+          - 9047:9047
+          - 32010:32010
+        env:
+          DREMIO_JAVA_EXTRA_OPTS: "-Ddebug.addDefaultUser=true -Ddremio.eula.disabled=true"
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Java ${{ matrix.java-version }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+      - name: Poll for Dremio readiness
+        run: |
+          python ../readiness_check.py
+      - name: Test connection to Dremio Arrow Flight server endpoint
+        run: |
+          mvn clean test
+      - name: Print docker logs
+        if: ${{ failure() || cancelled() }}
+        run: |
+          docker logs $(docker ps -aq)
