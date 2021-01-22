@@ -72,9 +72,13 @@ public class AdhocFlightClient implements AutoCloseable {
                                                        String keyStorePath,
                                                        String keyStorePass,
                                                        HeaderCallOption clientProperties) throws Exception {
+        // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
+        // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
+        // username/password and bearer token authorization header authentication for this Flight Client.
         final ClientIncomingAuthHeaderMiddleware.Factory factory =
                 new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
+        // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
         final FlightClient client = FlightClient.builder()
                 .allocator(allocator)
                 .location(Location.forGrpcTls(host, port))
@@ -102,9 +106,13 @@ public class AdhocFlightClient implements AutoCloseable {
                                                    String host, int port,
                                                    String user, String pass,
                                                    HeaderCallOption clientProperties) {
+        // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
+        // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
+        // username/password and bearer token authorization header authentication for this Flight Client.
         final ClientIncomingAuthHeaderMiddleware.Factory factory =
                 new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
+        // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
         final FlightClient client = FlightClient.builder()
                 .allocator(allocator)
                 .location(Location.forGrpcInsecure(host, port))
@@ -130,15 +138,34 @@ public class AdhocFlightClient implements AutoCloseable {
         final List<CallOption> callOptions = new ArrayList<>();
 
         // Add CredentialCallOption for authentication.
+        // A CredentialCallOption is instantiated with an instance of BasicAuthCredentialWriter.
+        // The BasicAuthCredentialWriter takes in username and password pair, encodes the pair and
+        // insert the credentials into the Authorization header to authenticate with the server.
         callOptions.add(new CredentialCallOption(new BasicAuthCredentialWriter(user, pass)));
 
-        // If provided, add client properties to CallOptions
+        // Note: Dremio client properties "routing-tag" and "routing-queue" can only be set during
+        //       initial authentication. Below code snippet demonstrates how these two properties
+        //       can be set.
+
+        //final Map<String, String> properties = ImmutableMap.of(
+        //        "routing-tag", "test-routing-tag",
+        //        "routing-queue", "Low Cost User Queries");
+        //final CallHeaders callHeaders = new FlightCallHeaders();
+        //properties.forEach(callHeaders::insert);
+        //final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+        //callOptions.add(routingCallOptions);
+
+        // If provided, add client properties to CallOptions.
         if (clientProperties != null) {
             callOptions.add(clientProperties);
         }
 
-        // Perform handshake
+        // Perform handshake with the Dremio Flight Server Endpoint.
         client.handshake(callOptions.toArray(new CallOption[callOptions.size()]));
+
+        // Authentication is successful, extract the bearer token returned by the server from the
+        // ClientIncomingAuthHeaderMiddleware.Factory. The CredentialCallOption can be used in
+        // subsequent Flight RPC requests for bearer token authentication.
         return factory.getCredentialCallOption();
     }
 
@@ -176,9 +203,27 @@ public class AdhocFlightClient implements AutoCloseable {
      * @throws Exception if error occurs during query execution.
      */
     public List<Object[]> runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
+        // Note: Dremio client property "schema" can be set for Flight RPC request to the server.
+        //       The "schema" property provides context for a query. For instance, the catalog or schema
+        //       of the query can be provided, so that the query does not have to reference the full dataset path.
+
+        //       Below is a code snippet demonstrating how the "schema" client property can be set.
+        //final Map<String, String> schemaProperty = ImmutableMap.of(
+        //        "schema", "test-schema");
+        //final CallHeaders callHeaders = new FlightCallHeaders();
+        //properties.forEach(callHeaders::insert);
+        //final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+
+        // Using CredentialCallOption cached from initial authentication for the getInfo Flight request.
         final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+
+        // Similar to the getInfo call above, getStream also uses the CredentialCallOption cached from initial authentication.
+        // The CredentialCallOption can be used until the token is invalidated.
         final FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption);
+
+        // Processes the FlightStream returned to print the result set.
         final List<Object[]> values = new ArrayList<>();
+        // Retrieve result set field types from the result set schema.
         final List<Field> fields = stream.getSchema().getFields();
         final int columnCount = fields.size();
         while (stream.next()) {
