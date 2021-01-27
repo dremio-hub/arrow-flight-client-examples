@@ -19,28 +19,44 @@ import sys
 from pyarrow import flight
 
 
-class DremioBasicServerAuthHandler(flight.ClientAuthHandler):
-    """
-    ClientAuthHandler for connections to Dremio server endpoint.
-    """
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-        super(flight.ClientAuthHandler, self).__init__()
+class DremioClientAuthMiddlewareFactory(flight.ClientMiddlewareFactory):
+    """A factory that creates DremioClientAuthMiddleware(s)."""
 
-    def authenticate(self, outgoing, incoming):
-        """
-        Authenticate with Dremio user credentials.
-        """
-        basic_auth = flight.BasicAuth(self.username, self.password)
-        outgoing.write(basic_auth.serialize())
-        self.token = incoming.read()
+    def __init__(self):
+        self.call_credential = []
 
-    def get_token(self):
-        """
-        Get the token from this AuthHandler.
-        """
-        return self.token
+    def start_call(self, info):
+        return DremioClientAuthMiddleware(self)
+
+    def set_call_credential(self, call_credential):
+        self.call_credential = call_credential
+
+
+class DremioClientAuthMiddleware(flight.ClientMiddleware):
+    """
+    A ClientMiddleware that extracts the bearer token from 
+    the authorization header returned by the Dremio 
+    Flight Server Endpoint.
+
+    Parameters
+    ----------
+    factory : ClientHeaderAuthMiddlewareFactory
+        The factory to set call credentials if an
+        authorization header with bearer token is
+        returned by the Dremio server.
+    """
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def received_headers(self, headers):
+        auth_header_key = 'authorization'
+        authorization_header = []
+        for key in headers:
+          if key.lower() == auth_header_key:
+            authorization_header = headers.get(auth_header_key)
+        self.factory.set_call_credential([
+            b'authorization', authorization_header[0].encode("utf-8")])
 
 
 def parse_arguments():
@@ -89,12 +105,21 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
                 sys.exit()
-
+ 
+        # Two WLM settings can be provided upon initial authneitcation
+        # with the Dremio Server Flight Endpoint:
+        # - routing-tag
+        # - routing queue
+        initial_options = flight.FlightCallOptions(headers=[
+            (b'routing-tag', b'test-routing-tag'),
+            (b'routing-queue', b'Low Cost User Queries')
+        ])
+        client_auth_middleware = DremioClientAuthMiddlewareFactory()
         client = flight.FlightClient("{}://{}:{}".format(scheme, hostname, flightport),
-          **connection_args)
+          middleware=[client_auth_middleware], **connection_args)
 
         # Authenticate with the server endpoint.
-        client.authenticate(DremioBasicServerAuthHandler(username, password))
+        bearer_token = client.authenticate_basic_token(username, password, initial_options)
         print('[INFO] Authentication was successful')
 
         if sqlquery:
@@ -102,19 +127,28 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
             flight_desc = flight.FlightDescriptor.for_command(sqlquery)
             print('[INFO] Query: ', sqlquery)
 
+            # In addition to the bearer token, a query context can also
+            # be provided as an entry of FlightCallOptions. 
+            # options = flight.FlightCallOptions(headers=[
+            #     bearer_token,
+            #     (b'schema', b'test.schema')
+            # ])
+
             # Retrieve the schema of the result set.
-            schema = client.get_schema(flight_desc)
+            options = flight.FlightCallOptions(headers=[bearer_token])
+            schema = client.get_schema(flight_desc, options)
             print('[INFO] GetSchema was successful')
             print('[INFO] Schema: ', schema)
 
             # Get the FlightInfo message to retrieve the Ticket corresponding
             # to the query result set.
-            flight_info = client.get_flight_info(flight.FlightDescriptor.for_command(sqlquery))
+            flight_info = client.get_flight_info(flight.FlightDescriptor.for_command(sqlquery),
+                options)
             print('[INFO] GetFlightInfo was successful')
             print('[INFO] Ticket: ', flight_info.endpoints[0].ticket)
 
             # Retrieve the result set as a stream of Arrow record batches.
-            reader = client.do_get(flight_info.endpoints[0].ticket)
+            reader = client.do_get(flight_info.endpoints[0].ticket, options)
             print('[INFO] Reading query results from Dremio')
             print(reader.read_pandas())
 
