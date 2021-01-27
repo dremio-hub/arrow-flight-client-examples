@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <arrow.version>3.0.0-20201110174718-41d24384a1-dremio</arrow.version>
+        <arrow.version>3.0.0</arrow.version>
     </properties>
 
     <repositories>
