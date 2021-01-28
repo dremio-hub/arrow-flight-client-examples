@@ -39,7 +39,7 @@ jobs:
       matrix:
         # PyArrow is currently not compatible with Python 3.9
         # See: https://arrow.apache.org/docs/python/install.html#python-compatibility
-        python-version: [3.5, 3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8]
 
     services:
       dremio:
@@ -67,17 +67,13 @@ jobs:
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      # Below test steps are temporarily turned off until Python sample client application is
-      # updated to use Arrow Flight Auth2 authentication.
-
-      # Below step can be improved to run a Python or Bash script that checks for Dremio's liveness
-      #- name: Poll for Dremio readiness
-      #  run: |
-      #    python ../readiness_check.py
-      #- name: Test connection to Dremio Arrow Flight server endpoint
-      #  run: |
-      #    pytest test.py -v -s
-      #- name: Print docker logs
-      #  if: ${{ failure() || cancelled() }}
-      #  run: |
-      #    docker logs $(docker ps -aq)
+      - name: Poll for Dremio readiness
+        run: |
+          python ../readiness_check.py
+      - name: Test connection to Dremio Arrow Flight server endpoint
+        run: |
+          pytest test.py -v -s
+      - name: Print docker logs
+        if: ${{ failure() || cancelled() }}
+        run: |
+          docker logs $(docker ps -aq)
