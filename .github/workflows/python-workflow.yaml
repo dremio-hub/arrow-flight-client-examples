@@ -39,7 +39,7 @@ jobs:
       matrix:
         # PyArrow is currently not compatible with Python 3.9
         # See: https://arrow.apache.org/docs/python/install.html#python-compatibility
-        python-version: [3.5, 3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8]
 
     services:
       dremio:
