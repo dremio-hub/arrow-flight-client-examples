@@ -62,14 +62,14 @@ record:
 
 func TestErrors(t *testing.T) {
 	tests := []struct {
-		name     string
-		argList  []string
-		expected string
+		name        string
+		argList     []string
+		errorPrefix string
 	}{
 		{"bad hostname", []string{"--user=dremio", "--pass=dremio123", "--host=badHostNamE"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp: lookup badHostNamE: no such host"`},
+			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp: lookup badHostNamE:`},
 		{"bad port", []string{"--host=localhost", "--port=12345", "--user=dremio", "--pass=dremio123"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp 127.0.0.1:12345: connectex: No connection could be made because the target machine actively refused it."`},
+			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp`},
 	}
 
 	for _, tt := range tests {
@@ -91,7 +91,7 @@ func TestErrors(t *testing.T) {
 			require.Error(t, err)
 
 			got := strings.TrimSpace(string(gotBytes))
-			assert.Equal(t, tt.expected, got)
+			assert.Truef(t, strings.HasPrefix(got, tt.errorPrefix), "expected: %s as prefix, got %s", got, tt.errorPrefix)
 		})
 	}
 }
