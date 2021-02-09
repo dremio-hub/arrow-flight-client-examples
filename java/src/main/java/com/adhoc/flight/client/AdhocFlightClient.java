@@ -222,32 +222,37 @@ public class AdhocFlightClient implements AutoCloseable {
         final FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption);
 
         // Processes the FlightStream returned to print the result set.
-        final List<Object[]> values = new ArrayList<>();
+        final List<Object[]> results = new ArrayList<>();
+
         // Retrieve result set field types from the result set schema.
         final List<Field> fields = stream.getSchema().getFields();
         final int columnCount = fields.size();
+
         while (stream.next()) {
+            final List<Object[]> currentRootResults = new ArrayList<>();
+
             VectorSchemaRoot root = stream.getRoot();
-            final long rowCount = root.getRowCount();
+            final long currentRootRowCount = root.getRowCount();
 
             for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
                 final Field field = fields.get(columnIndex);
 
                 final FieldVector fieldVector = root.getVector(field.getName());
 
-                for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                    if (values.size() - 1 < rowIndex) {
-                        values.add(new Object[columnCount]);
+                for (int rowIndex = 0; rowIndex < currentRootRowCount; rowIndex++) {
+                    if (currentRootResults.size() - 1 < rowIndex) {
+                        currentRootResults.add(new Object[columnCount]);
                     }
-                    final Object[] rowValues = values.get(rowIndex);
+                    final Object[] rowValues = currentRootResults.get(rowIndex);
                     final Object value = fieldVector.getObject(rowIndex);
                     rowValues[columnIndex] = value;
                 }
             }
+            results.addAll(currentRootResults);
             AutoCloseables.close(root);
         }
         AutoCloseables.close(stream);
-        return values;
+        return results;
     }
 
     public void close() {

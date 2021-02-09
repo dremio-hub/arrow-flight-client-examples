@@ -28,9 +28,6 @@ public class PrintUtils {
 
     public static void prettyPrintRows(List<Object[]> rows) {
         System.out.println("[INFO] Printing query results from Dremio.");
-        System.out.println("-----------------"
-                + " Total number of records: " + rows.size()
-                + " -----------------");
         for (Object[] rowValues : rows) {
             for (int i = 0; i < rowValues.length; i++) {
                 System.out.print(rowValues[i]);
@@ -40,7 +37,9 @@ public class PrintUtils {
             }
             System.out.println();
         }
-        System.out.println("--------------------------------------------------------------");
+        System.out.println("-----------------"
+                + " Total number of records retrieved: " + rows.size()
+                + " -----------------");
     }
 
     public static void printRunQuery(String query) {
