@@ -73,7 +73,7 @@ jobs:
 
       - name: Run Golint and Go Vet
         run: |
-          golint .
+          go run golang.org/x/lint/golint .
           go vet .
 
       - name: Poll for Dremio Readiness
