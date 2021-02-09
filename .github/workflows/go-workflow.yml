@@ -16,9 +16,13 @@ on:
   push:
     branches:
       - '**'
+    paths:
+      - 'go/**'
   pull_request:
     branches:
       - '**'
+    paths:
+      - 'go/**'
   schedule:
     # run every monday at 9am PST
     - cron: "0 16 * * 1"
