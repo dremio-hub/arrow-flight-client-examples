@@ -129,7 +129,7 @@ func main() {
 	}
 	log.Println("[INFO] Schema:", schema)
 
-	// Get the FlightInfo message to retireve the ticket corresponding to the query result set
+	// Get the FlightInfo message to retrieve the ticket corresponding to the query result set
 	info, err := client.GetFlightInfo(ctx, desc)
 	if err != nil {
 		log.Fatal(err)
