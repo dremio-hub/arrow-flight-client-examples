@@ -36,7 +36,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
 
-import com.adhoc.flight.utils.PrintUtils;
+import com.adhoc.flight.utils.PrintRowProcessor;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -199,10 +199,10 @@ public class AdhocFlightClient implements AutoCloseable {
      *
      * @param query the SQL query to execute.
      * @param headerCallOption client properties to execute provided SQL query with.
-     * @return query results as a list of Object arrays.
+     * @param rowProcessor object to use for processing rows
      * @throws Exception if error occurs during query execution.
      */
-    public List<Object[]> runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
+    public void runQuery(String query, HeaderCallOption headerCallOption, RowProcessor rowProcessor) throws Exception {
         // Note: Dremio client property "schema" can be set for Flight RPC request to the server.
         //       The "schema" property provides context for a query. For instance, the catalog or schema
         //       of the query can be provided, so that the query does not have to reference the full dataset path.
@@ -229,37 +229,33 @@ public class AdhocFlightClient implements AutoCloseable {
         final int columnCount = fields.size();
 
         while (stream.next()) {
-            final List<Object[]> currentRootResults = new ArrayList<>();
-
-            VectorSchemaRoot root = stream.getRoot();
-            final long currentRootRowCount = root.getRowCount();
-
-            for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-                final Field field = fields.get(columnIndex);
-
-                final FieldVector fieldVector = root.getVector(field.getName());
+            if (rowProcessor != null) {
+                VectorSchemaRoot root = stream.getRoot();
+                final long currentRootRowCount = root.getRowCount();
 
                 for (int rowIndex = 0; rowIndex < currentRootRowCount; rowIndex++) {
-                    if (currentRootResults.size() - 1 < rowIndex) {
-                        currentRootResults.add(new Object[columnCount]);
+                    Object[] rowValues = new Object[columnCount];
+
+                    for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+                        final Field field = fields.get(columnIndex);
+                        final FieldVector fieldVector = root.getVector(field.getName());
+
+                        rowValues[columnIndex] = fieldVector.getObject(rowIndex);
                     }
-                    final Object[] rowValues = currentRootResults.get(rowIndex);
-                    final Object value = fieldVector.getObject(rowIndex);
-                    rowValues[columnIndex] = value;
+
+                    rowProcessor.processRow(rowValues);
                 }
+                AutoCloseables.close(root);
             }
-            results.addAll(currentRootResults);
-            AutoCloseables.close(root);
         }
         AutoCloseables.close(stream);
-        return results;
     }
 
     public void close() {
         try {
             client.close();
         } catch (InterruptedException ex) {
-            PrintUtils.printExceptionOnClosed(ex);
+            PrintRowProcessor.printExceptionOnClosed(ex);
         }
     }
 }

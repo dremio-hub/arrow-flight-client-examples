@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.adhoc.flight.client.AdhocFlightClient;
+import com.adhoc.flight.client.RowProcessor;
 
 /**
  * Test Adhoc Flight Client.
@@ -55,10 +56,19 @@ public class TestAdhocFlightClient {
 
     private AdhocFlightClient client;
     private BufferAllocator allocator;
+    private TestRowProcessor rowProcessor;
+
+    private static class TestRowProcessor implements RowProcessor {
+        @Override
+        public void processRow(Object[] rowValues) {
+            // Do nothing
+        }
+    }
 
     @Before
     public void setup() {
         allocator = new RootAllocator(Long.MAX_VALUE);
+        rowProcessor = new TestRowProcessor();
     }
 
     @After
@@ -104,7 +114,7 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
         // Select
-        client.runQuery(SIMPLE_QUERY, null);
+        client.runQuery(SIMPLE_QUERY, null, rowProcessor);
     }
 
     @Test
@@ -120,13 +130,13 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, clientProperties);
 
         // Create table
-        client.runQuery(CREATE_TABLE_NO_SCHEMA, null);
+        client.runQuery(CREATE_TABLE_NO_SCHEMA, null, rowProcessor);
 
         // Select
-        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null);
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null, rowProcessor);
 
         // Drop table
-        client.runQuery(DROP_TABLE, null);
+        client.runQuery(DROP_TABLE, null, rowProcessor);
     }
 
     @Test
@@ -135,16 +145,16 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
         // Create table
-        client.runQuery(CREATE_TABLE, null);
+        client.runQuery(CREATE_TABLE, null, rowProcessor);
 
         // Select
         final CallHeaders callHeaders = new FlightCallHeaders();
         callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
         final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
-        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption);
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption, rowProcessor);
 
         // Drop table
-        client.runQuery(DROP_TABLE, null);
+        client.runQuery(DROP_TABLE, null, rowProcessor);
     }
 
     @Test

@@ -15,7 +15,6 @@
  */
 package com.adhoc.flight;
 
-import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -23,11 +22,10 @@ import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 
 import com.adhoc.flight.client.AdhocFlightClient;
-import com.adhoc.flight.utils.PrintUtils;
+import com.adhoc.flight.utils.PrintRowProcessor;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
@@ -122,13 +120,14 @@ public class QueryRunner {
 
         // Authenticates FlightClient with routing properties.
         try (final AdhocFlightClient client = createFlightClient(routingCallOption)) {
-            PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
+            PrintRowProcessor rowProcessor = new PrintRowProcessor();
+            rowProcessor.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
              * Create demo table in $scratch
              */
             System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
-            client.runQuery(CREATE_DEMO_TABLE, null);
+            client.runQuery(CREATE_DEMO_TABLE, null, null);
             System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
 
             /**
@@ -136,27 +135,22 @@ public class QueryRunner {
              */
             System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
             System.out.println("[INFO] Setting client property: schema => $scratch");
-            PrintUtils.printRunQuery(SELECT_DEMO_TABLE);
+            rowProcessor.printRunQuery(SELECT_DEMO_TABLE);
 
             // Set default schema path to "$scratch" for the next FlightRPC request.
             final Map<String, String> schemaProperty = ImmutableMap.of(
                     "schema", DEMO_TABLE_SCHEMA);
             final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
             // Run query "select * from dremio_flight_demo_table" without schema path.
-            final List<Object[]> results = client.runQuery(SELECT_DEMO_TABLE, schemaCallOption);
-
-            /**
-             * Print Results
-             */
-            System.out.println("[INFO] [STEP 4]: Iterate through query results.");
-            PrintUtils.prettyPrintRows(results);
+            client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, rowProcessor);
+            rowProcessor.printFooter();
             System.out.println();
 
             /**
              * Drop Demo Table
              */
             System.out.println("[INFO] [STEP 5]: Drop demo table.");
-            client.runQuery(DROP_DEMO_TABLE, schemaCallOption);
+            client.runQuery(DROP_DEMO_TABLE, schemaCallOption, null);
             System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
@@ -182,21 +176,23 @@ public class QueryRunner {
     public static void runAdhoc() throws Exception {
 
         try (final AdhocFlightClient client = createFlightClient(null)) {
+            PrintRowProcessor rowProcessor = new PrintRowProcessor();
+
             /**
              * Authentication
              */
-            PrintUtils.prettyPrintAuthenticationSuccess(ARGUMENTS.host, ARGUMENTS.port);
+            rowProcessor.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
              * Run Query
              */
-            final List<Object[]> results = client.runQuery(ARGUMENTS.query, null);
+            rowProcessor.printRunQuery(ARGUMENTS.query);
+            client.runQuery(ARGUMENTS.query, null, rowProcessor);
 
             /**
              * Print Results
              */
-            PrintUtils.printRunQuery(ARGUMENTS.query);
-            PrintUtils.prettyPrintRows(results);
+            rowProcessor.printFooter();
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
