@@ -28,9 +28,19 @@ import java.util.Enumeration;
 
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
+/**
+ * Utility methods for encryption private keys.
+ */
 public class EncryptedConnectionUtils {
     private EncryptedConnectionUtils(){}
 
+    /**
+     * Generates an InputStream that contains certificates for a private key.
+     * @param keyStorePath path to the keystore
+     * @param keyStorePassword password for the keystore
+     * @return a new InputStream containing the certificates
+     * @throws Exception if there was an error looking up the private key or certificates
+     */
     public static InputStream getCertificateStream(String keyStorePath, String keyStorePassword) throws Exception {
         final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
         try (final InputStream keyStoreStream = Files.newInputStream(Paths.get(keyStorePath))) {

@@ -17,14 +17,26 @@ package com.adhoc.flight.utils;
 
 import com.adhoc.flight.client.RowProcessor;
 
+/**
+ * A RowProcessor implementation that will print out all of the data
+ * received to STDOUT.
+ */
 public class PrintRowProcessor implements RowProcessor {
     private long rowCount = 0;
 
+    /**
+     * Prints a message out that the client has authenticated with the server.
+     * @param host The server that the client connected to
+     * @param port The port on the server that the client connected to
+     */
     public void printAuthenticated(String host, int port) {
         System.out.println("[INFO] Authenticated with Dremio server at " + host + ":" + port
                 + " successfully.");
     }
 
+    /**
+     * Prints out the header.
+     */
     public void printPreamble() {
         System.out.println("[INFO] Printing query results from Dremio.");
     }
@@ -42,16 +54,27 @@ public class PrintRowProcessor implements RowProcessor {
         System.out.println();
     }
 
+    /**
+     * Prints out the footer.
+     */
     public void printFooter() {
         System.out.println("-----------------"
                 + " Total number of records retrieved: " + rowCount
                 + " -----------------");
     }
 
+    /**
+     * Prints out the query that was run.
+     * @param query the query that was run
+     */
     public void printRunQuery(String query) {
         System.out.println("[INFO] Running Query: " + query);
     }
 
+    /**
+     * Prints out a message that an exception was received.
+     * @param ex the exception that was received.
+     */
     public static void printExceptionOnClosed(Exception ex) {
         System.out.println("[ERROR] Encountered exception while closing client, exception: " + ex.getMessage());
     }

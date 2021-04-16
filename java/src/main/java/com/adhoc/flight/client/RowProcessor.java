@@ -15,6 +15,13 @@
  */
 package com.adhoc.flight.client;
 
+/**
+ * Used for processing one row of data at a time.
+ */
 public interface RowProcessor {
+    /**
+     * Processes one row of data.
+     * @param rowValues the row of data
+     */
     void processRow(Object[] rowValues);
 }
