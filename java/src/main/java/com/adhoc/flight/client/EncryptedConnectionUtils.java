@@ -50,8 +50,8 @@ public class EncryptedConnectionUtils {
         final Enumeration<String> aliases = keyStore.aliases();
         while (aliases.hasMoreElements()) {
             final String alias = aliases.nextElement();
-            if (keyStore.isKeyEntry(alias)) {
-                final Certificate[] certificates = keyStore.getCertificateChain(alias);
+            if (keyStore.isCertificateEntry(alias)) {
+                final Certificate certificates = keyStore.getCertificate(alias);
                 return toInputStream(certificates);
             }
         }
