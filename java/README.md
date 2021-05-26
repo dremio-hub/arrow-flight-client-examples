@@ -30,31 +30,33 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 usage: java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -query <QUERY> -host <DREMIO_HOSTNAME> -port <DREMIO_PORT> -user <DREMIO_USER> -pass <DREMIO_PASSWORD>
 
 optional arguments:
-  -h, --help            
-    show this help message and exit
-  -port, --flightport
-    Dremio flight server port
-    Default: 32010
-  -host, --hostname
-    Dremio co-ordinator hostname
-    Default: localhost
-  -kstpass, --keyStorePassword
-    The jks keystore password
-  -kstpath, --keyStorePath
-    Path to the jks keystore
-  -pass, --password
-    Dremio password
-    Default: dremio123
-  -demo, --runDemo
-    A flag to to run a demo of querying the Dremio Flight Server Endpoint.
-    Default: false
-  -query, --sqlQuery
-    SQL query to test
-  -tls, --tls
-    Enable encrypted connection
-    Default: false
-  -user, --username
-    Dremio username
-    Default: dremio
+    -port, --flightport
+      Dremio flight server port
+      Default: 32010
+    -h, --help
+      show usage
+    -host, --hostname
+      Dremio co-ordinator hostname
+      Default: localhost
+    -kstpass, --keyStorePassword
+      The jks keystore password
+    -kstpath, --keyStorePath
+      Path to the jks keystore
+    -pass, --password
+      Dremio password
+      Default: dremio123
+    -demo, --runDemo
+      A flag to to run a demo of querying the Dremio Flight Server Endpoint.
+      Default: false
+    -binpath, --saveBinaryPath
+      path to save the SQL result binary to
+    -query, --sqlQuery
+      SQL query to test
+    -tls, --tls
+      Enable encrypted connection
+      Default: false
+    -user, --username
+      Dremio username
+      Default: dremio
 ```
 

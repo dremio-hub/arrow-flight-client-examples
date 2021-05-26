@@ -33,7 +33,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.adhoc.flight.client.AdhocFlightClient;
-import com.adhoc.flight.client.RowProcessor;
 
 /**
  * Test Adhoc Flight Client.
@@ -56,20 +55,10 @@ public class TestAdhocFlightClient {
 
     private AdhocFlightClient client;
     private BufferAllocator allocator;
-    private TestRowProcessor rowProcessor;
-
-    @Deprecated
-    private static class TestRowProcessor implements RowProcessor {
-        @Override
-        public void processRow(Object[] rowValues) {
-            // Do nothing
-        }
-    }
 
     @Before
     public void setup() {
         allocator = new RootAllocator(Long.MAX_VALUE);
-        rowProcessor = new TestRowProcessor();
     }
 
     @After
