@@ -50,20 +50,18 @@ public class EncryptedConnectionUtils {
         final Enumeration<String> aliases = keyStore.aliases();
         while (aliases.hasMoreElements()) {
             final String alias = aliases.nextElement();
-            if (keyStore.isKeyEntry(alias)) {
-                final Certificate[] certificates = keyStore.getCertificateChain(alias);
+            if (keyStore.isCertificateEntry(alias)) {
+                final Certificate certificates = keyStore.getCertificate(alias);
                 return toInputStream(certificates);
             }
         }
         throw new RuntimeException("Keystore did not have a private key.");
     }
 
-    private static InputStream toInputStream(Certificate[] certificates) throws IOException {
+    private static InputStream toInputStream(Certificate certificate) throws IOException {
         try (final StringWriter writer = new StringWriter();
-             final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
-            for (Certificate certificate : certificates) {
-                pemWriter.writeObject(certificate);
-            }
+            final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+            pemWriter.writeObject(certificate);
             pemWriter.flush();
             return new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8));
         }
