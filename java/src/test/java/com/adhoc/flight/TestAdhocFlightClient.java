@@ -115,7 +115,7 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
         // Select
-        client.runQuery(SIMPLE_QUERY, null, rowProcessor);
+        client.runQuery(SIMPLE_QUERY, true);
     }
 
     @Test
@@ -131,13 +131,13 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, clientProperties);
 
         // Create table
-        client.runQuery(CREATE_TABLE_NO_SCHEMA, null, rowProcessor);
+        client.runQuery(CREATE_TABLE_NO_SCHEMA, true);
 
         // Select
-        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null, rowProcessor);
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, true);
 
         // Drop table
-        client.runQuery(DROP_TABLE, null, rowProcessor);
+        client.runQuery(DROP_TABLE, true);
     }
 
     @Test
@@ -146,16 +146,16 @@ public class TestAdhocFlightClient {
         createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
         // Create table
-        client.runQuery(CREATE_TABLE, null, rowProcessor);
+        client.runQuery(CREATE_TABLE, true);
 
         // Select
         final CallHeaders callHeaders = new FlightCallHeaders();
         callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
         final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
-        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption, rowProcessor);
+        client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption, true);
 
         // Drop table
-        client.runQuery(DROP_TABLE, null, rowProcessor);
+        client.runQuery(DROP_TABLE, true);
     }
 
     @Test

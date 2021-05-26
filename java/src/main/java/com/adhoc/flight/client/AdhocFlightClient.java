@@ -15,6 +15,7 @@
  */
 package com.adhoc.flight.client;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,12 +32,10 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.Field;
 
 import com.adhoc.flight.utils.PrintRowProcessor;
+import com.adhoc.flight.utils.QueryUtils;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -192,6 +191,39 @@ public class AdhocFlightClient implements AutoCloseable {
     public FlightStream getStream(FlightInfo flightInfo, CallOption... options) {
         return client.getStream(flightInfo.getEndpoints().get(0).getTicket(), options);
     }
+    
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param headerCallOption client properties to execute provided SQL query with.
+     * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
+     *        should be saved.
+     * @param printToConsole whether or not the query results should be printed to the console.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query,
+                         HeaderCallOption headerCallOption,
+                         File fileToSaveTo, boolean printToConsole) throws Exception {
+
+        final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+
+        try (FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption)) {
+
+            if (!stream.next())
+                return;
+
+            try (VectorSchemaRoot root = stream.getRoot()) {
+
+                if (printToConsole)
+                    QueryUtils.Printer.printResults(root);
+
+                if (fileToSaveTo != null)
+                    QueryUtils.Writer.writeToBinaryFile(root, fileToSaveTo);
+            }
+        }
+    }
 
     /**
      * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
@@ -199,56 +231,87 @@ public class AdhocFlightClient implements AutoCloseable {
      *
      * @param query the SQL query to execute.
      * @param headerCallOption client properties to execute provided SQL query with.
-     * @param rowProcessor object to use for processing rows
-     * @throws Exception if error occurs during query execution.
+     * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
+     *        should be saved.
+     * @throws Exception if an error occurs during query execution.
      */
-    public void runQuery(String query, HeaderCallOption headerCallOption, RowProcessor rowProcessor) throws Exception {
-        // Note: Dremio client property "schema" can be set for Flight RPC request to the server.
-        //       The "schema" property provides context for a query. For instance, the catalog or schema
-        //       of the query can be provided, so that the query does not have to reference the full dataset path.
+    public void runQuery(String query, HeaderCallOption headerCallOption, File fileToSaveTo) throws Exception {
+        runQuery(query, headerCallOption, fileToSaveTo, false);
+    }
 
-        //       Below is a code snippet demonstrating how the "schema" client property can be set.
-        //final Map<String, String> schemaProperty = ImmutableMap.of(
-        //        "schema", "test-schema");
-        //final CallHeaders callHeaders = new FlightCallHeaders();
-        //properties.forEach(callHeaders::insert);
-        //final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param headerCallOption client properties to execute provided SQL query with.
+     * @param printToConsole whether or not the query results should be printed to the console.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query, HeaderCallOption headerCallOption, boolean printToConsole) throws Exception {
+        runQuery(query, headerCallOption, null, printToConsole);
+    }
 
-        // Using CredentialCallOption cached from initial authentication for the getInfo Flight request.
-        final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
+     *        should be saved.
+     * @param printToConsole whether or not the query results should be printed to the console.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query, File fileToSaveTo, boolean printToConsole) throws Exception {
+        runQuery(query, null, fileToSaveTo, printToConsole);
+    }
 
-        // Similar to the getInfo call above, getStream also uses the CredentialCallOption cached from initial authentication.
-        // The CredentialCallOption can be used until the token is invalidated.
-        final FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption);
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
+     *        should be saved.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query, File fileToSaveTo) throws Exception {
+        runQuery(query, null, fileToSaveTo, false);
+    }
 
-        // Processes the FlightStream returned to print the result set.
-        final List<Object[]> results = new ArrayList<>();
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param printToConsole whether or not the query results should be printed to the console.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query, boolean printToConsole) throws Exception {
+        runQuery(query, null, null, printToConsole);
+    }
+    
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @param headerCallOption client properties to execute provided SQL query with.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
+        runQuery(query, headerCallOption, false);
+    }
 
-        // Retrieve result set field types from the result set schema.
-        final List<Field> fields = stream.getSchema().getFields();
-        final int columnCount = fields.size();
-
-        while (stream.next()) {
-            if (rowProcessor != null) {
-                VectorSchemaRoot root = stream.getRoot();
-                final long currentRootRowCount = root.getRowCount();
-
-                for (int rowIndex = 0; rowIndex < currentRootRowCount; rowIndex++) {
-                    Object[] rowValues = new Object[columnCount];
-
-                    for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-                        final Field field = fields.get(columnIndex);
-                        final FieldVector fieldVector = root.getVector(field.getName());
-
-                        rowValues[columnIndex] = fieldVector.getObject(rowIndex);
-                    }
-
-                    rowProcessor.processRow(rowValues);
-                }
-                AutoCloseables.close(root);
-            }
-        }
-        AutoCloseables.close(stream);
+    /**
+     * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+     * provided SQL query.
+     *
+     * @param query the SQL query to execute.
+     * @throws Exception if an error occurs during query execution.
+     */
+    public void runQuery(String query) throws Exception {
+        runQuery(query, false);
     }
 
     public void close() {
