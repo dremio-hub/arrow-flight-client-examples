@@ -20,7 +20,10 @@ import com.adhoc.flight.client.RowProcessor;
 /**
  * A RowProcessor implementation that will print out all of the data
  * received to STDOUT.
+ * @deprecated
+ * @see QueryUtils
  */
+@Deprecated
 public class PrintRowProcessor implements RowProcessor {
     private long rowCount = 0;
 

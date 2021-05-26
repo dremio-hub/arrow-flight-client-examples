@@ -58,6 +58,7 @@ public class TestAdhocFlightClient {
     private BufferAllocator allocator;
     private TestRowProcessor rowProcessor;
 
+    @Deprecated
     private static class TestRowProcessor implements RowProcessor {
         @Override
         public void processRow(Object[] rowValues) {

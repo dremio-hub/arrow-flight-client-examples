@@ -15,9 +15,14 @@
  */
 package com.adhoc.flight.client;
 
+import com.adhoc.flight.utils.QueryUtils;
+
 /**
  * Used for processing one row of data at a time.
+ * @deprecated
+ * @see QueryUtils
  */
+@Deprecated
 public interface RowProcessor {
     /**
      * Processes one row of data.
