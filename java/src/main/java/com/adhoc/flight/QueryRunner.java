@@ -15,6 +15,7 @@
  */
 package com.adhoc.flight;
 
+import java.io.File;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -23,9 +24,10 @@ import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.adhoc.flight.client.AdhocFlightClient;
-import com.adhoc.flight.utils.PrintRowProcessor;
+import com.adhoc.flight.utils.QueryUtils;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
@@ -64,6 +66,10 @@ public class QueryRunner {
         @Parameter(names = {"-query", "--sqlQuery"},
                 description = "SQL query to test")
         public String query = null;
+
+        @Parameter(names = {"-binpath", "--saveBinaryPath"},
+                description = "path to save the SQL result binary to")
+        public String pathToSaveQueryResultsTo = null;
 
         @Parameter(names = {"-tls", "--tls"},
                 description = "Enable encrypted connection")
@@ -120,14 +126,13 @@ public class QueryRunner {
 
         // Authenticates FlightClient with routing properties.
         try (final AdhocFlightClient client = createFlightClient(routingCallOption)) {
-            PrintRowProcessor rowProcessor = new PrintRowProcessor();
-            rowProcessor.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+            QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
 
             /**
              * Create demo table in $scratch
              */
             System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
-            client.runQuery(CREATE_DEMO_TABLE, null, null);
+            client.runQuery(CREATE_DEMO_TABLE);
             System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
 
             /**
@@ -135,23 +140,65 @@ public class QueryRunner {
              */
             System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
             System.out.println("[INFO] Setting client property: schema => $scratch");
-            rowProcessor.printRunQuery(SELECT_DEMO_TABLE);
+            QueryUtils.printRunningQuery(SELECT_DEMO_TABLE);
 
             // Set default schema path to "$scratch" for the next FlightRPC request.
             final Map<String, String> schemaProperty = ImmutableMap.of(
                     "schema", DEMO_TABLE_SCHEMA);
             final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
             // Run query "select * from dremio_flight_demo_table" without schema path.
-            client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, rowProcessor);
-            rowProcessor.printFooter();
+            client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, true);
             System.out.println();
 
             /**
              * Drop Demo Table
              */
             System.out.println("[INFO] [STEP 5]: Drop demo table.");
-            client.runQuery(DROP_DEMO_TABLE, schemaCallOption, null);
+            client.runQuery(DROP_DEMO_TABLE, schemaCallOption);
             System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
+        } catch (Exception ex) {
+            System.out.println("[ERROR] Exception: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * An adhoc method to run a user query.
+     *
+     * Note: This adhoc does not use any client properties.
+     *       Please See demo above for client properties usage.
+     *
+     * @param pathToSaveQueryResultsTo the file path to which the binary data for the
+     *        {@link VectorSchemaRoot} with the query results.
+     *
+     * @throws Exception If there are issues running queries against the Dremio Arrow Flight
+     *                   Server Endpoint.
+     *         - FlightRuntimeError with Flight status code:
+     *         - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+     *         - INVALID_ARGUMENT: issues parsing query input.
+     *         - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
+     *         - UNAVAILABLE: Drmeio resource is not available.
+     *         - TIMED_OUT: timed out trying to access Dremio resources.
+     */
+    public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
+
+        try (final AdhocFlightClient client = createFlightClient(null)) {
+
+            /**
+             * Authentication
+             */
+            QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+
+            /**
+             * Run Query
+             */
+            QueryUtils.printRunningQuery(ARGUMENTS.query);
+
+            if (pathToSaveQueryResultsTo != null) {
+                client.runQuery(ARGUMENTS.query, new File(pathToSaveQueryResultsTo), true);
+            } else {
+                client.runQuery(ARGUMENTS.query, true);
+            }
         } catch (Exception ex) {
             System.out.println("[ERROR] Exception: " + ex.getMessage());
             ex.printStackTrace();
@@ -175,28 +222,7 @@ public class QueryRunner {
      */
     public static void runAdhoc() throws Exception {
 
-        try (final AdhocFlightClient client = createFlightClient(null)) {
-            PrintRowProcessor rowProcessor = new PrintRowProcessor();
-
-            /**
-             * Authentication
-             */
-            rowProcessor.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
-
-            /**
-             * Run Query
-             */
-            rowProcessor.printRunQuery(ARGUMENTS.query);
-            client.runQuery(ARGUMENTS.query, null, rowProcessor);
-
-            /**
-             * Print Results
-             */
-            rowProcessor.printFooter();
-        } catch (Exception ex) {
-            System.out.println("[ERROR] Exception: " + ex.getMessage());
-            ex.printStackTrace();
-        }
+        runAdhoc(null);
     }
 
     public static void main(String[] args) throws Exception {
@@ -207,7 +233,7 @@ public class QueryRunner {
         } else if (ARGUMENTS.runDemo) {
             runDemo();
         } else {
-            runAdhoc();
+            runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
         }
     }
 
