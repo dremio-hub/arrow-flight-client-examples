@@ -65,7 +65,7 @@ public class TestAdhocFlightClient {
 
   @After
   public void shutdown() throws Exception {
-    AutoCloseables.close(client);
+    AutoCloseables.close(client, allocator);
     allocator = null;
     client = null;
   }
