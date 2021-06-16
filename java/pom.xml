@@ -114,8 +114,8 @@
                 </executions>
                 <configuration>
                     <configLocation>checkstyle/checkstyle.xml</configLocation>
-                    <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
-                    <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
+                    <headerLocation>checkstyle/checkstyle.license</headerLocation>
+                    <suppressionsLocation>checkstyle/suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
