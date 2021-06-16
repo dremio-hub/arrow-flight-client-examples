@@ -233,12 +233,16 @@ public class QueryRunner {
   public static void main(String[] args) throws Exception {
     parseCommandLineArgs(args);
 
-    if (ARGUMENTS.help) {
-      System.exit(1);
-    } else if (ARGUMENTS.runDemo) {
-      runDemo();
-    } else {
-      runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+    try {
+      if (ARGUMENTS.help) {
+        System.exit(1);
+      } else if (ARGUMENTS.runDemo) {
+        runDemo();
+      } else {
+        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+      }
+    } finally {
+      BUFFER_ALLOCATOR.close();
     }
   }
 
