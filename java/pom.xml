@@ -113,7 +113,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
+                    <configLocation>checkstyle/checkstyle.xml</configLocation>
                     <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
                     <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
