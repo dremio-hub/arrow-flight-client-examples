@@ -65,8 +65,8 @@ public class TestAdhocFlightClient {
 
   @After
   public void shutdown() throws Exception {
+    allocator.getChildAllocators().forEach(BufferAllocator::close);
     AutoCloseables.close(client, allocator);
-    allocator = null;
     client = null;
   }
 
