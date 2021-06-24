@@ -76,13 +76,16 @@ def parse_arguments():
       required=False)
     parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection',
       required=False, default=False, action='store_true')
+    parser.add_argument('-disableServerVerification', '--disableServerVerification', dest='disableServerVerification',
+                        help='Disable server verification',
+                        required=False, default=False)
     parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
     return parser.parse_args()
 
 
 def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
-  tls, certs):
+  tls, certs, disableServerVerification):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
@@ -102,10 +105,14 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
                 # TLS certificates are provided in a list of connection arguments.
                 with open(certs, "rb") as root_certs:
                     connection_args["tls_root_certs"] = root_certs.read()
+            elif disableServerVerification:
+                # Connect to the server endpoint with server verification disabled.
+                print('[INFO] Disabling server verification.')
+                connection_args['disable_server_verification'] = disableServerVerification
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
                 sys.exit()
- 
+
         # Two WLM settings can be provided upon initial authneitcation
         # with the Dremio Server Flight Endpoint:
         # - routing-tag
@@ -128,7 +135,7 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
             print('[INFO] Query: ', sqlquery)
 
             # In addition to the bearer token, a query context can also
-            # be provided as an entry of FlightCallOptions. 
+            # be provided as an entry of FlightCallOptions.
             # options = flight.FlightCallOptions(headers=[
             #     bearer_token,
             #     (b'schema', b'test.schema')
@@ -162,4 +169,4 @@ if __name__ == "__main__":
     args = parse_arguments()
     # Connect to Dremio Arrow Flight server endpoint.
     connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username,
-      args.password, args.sqlquery, args.tls, args.trustedCertificates)
+      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.disableServerVerification)
