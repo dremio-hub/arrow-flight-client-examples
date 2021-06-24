@@ -34,6 +34,16 @@ def test_simple_query():
     connect_to_dremio_flight_server_endpoint("localhost",
       "32010", "dremio", "dremio123", query, False, False)
 
+@pytest.mark.skip(reason = "Need to run flight in the encrypted mode")
+def test_disable_server_verification():
+    """ Test connection to Dremio on a encrypted server using disable server verification options.
+    Then test a simple VALUES query.
+    """
+    query = "select * from (VALUES(1,2,3))"
+    connect_to_dremio_flight_server_endpoint("localhost",
+                                             "32010", "dremio", "dremio123", query, True, False, True)
+
+
 def test_bad_hostname():
     """
     Test connection with an incorrect server endpoint hostname.
