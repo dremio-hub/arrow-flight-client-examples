@@ -23,7 +23,7 @@ def test_basic_auth():
     Test connection to Dremio.
     """
     connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "dremio", "dremio123", False, False, False)
+      "32010", "dremio", "dremio123", False, False, False, False)
 
 def test_simple_query():
     """
@@ -32,7 +32,7 @@ def test_simple_query():
     """
     query = "select * from (VALUES(1,2,3))"
     connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "dremio", "dremio123", query, False, False)
+      "32010", "dremio", "dremio123", query, False, False, False)
 
 @pytest.mark.skip(reason = "Need to run flight in the encrypted mode")
 def test_disable_server_verification():
