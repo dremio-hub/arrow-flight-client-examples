@@ -70,22 +70,35 @@ public class AdhocFlightClient implements AutoCloseable {
           String user, String pass,
           String keyStorePath,
           String keyStorePass,
-          HeaderCallOption clientProperties) throws Exception {
-    // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
-    // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
-    // username/password and bearer token authorization header authentication for this Flight Client.
-    final ClientIncomingAuthHeaderMiddleware.Factory factory =
-            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+          boolean verifyServer,
+            HeaderCallOption clientProperties) throws Exception {
+        // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
+        // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
+        // username/password and bearer token authorization header authentication for this Flight Client.
+        final ClientIncomingAuthHeaderMiddleware.Factory factory =
+                new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
-    // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-    final FlightClient client = FlightClient.builder()
-            .allocator(allocator)
-            .location(Location.forGrpcTls(host, port))
-            .intercept(factory)
-            .useTls()
-            .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
-                    keyStorePath, keyStorePass))
-            .build();
+        // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
+      final FlightClient.Builder clientBuilder = FlightClient.builder();
+
+        if (verifyServer) {
+          clientBuilder
+              .allocator(allocator)
+              .location(Location.forGrpcTls(host, port))
+              .intercept(factory)
+              .useTls()
+              .verifyServer(false);
+        } else {
+          clientBuilder
+              .allocator(allocator)
+              .location(Location.forGrpcTls(host, port))
+              .intercept(factory)
+              .useTls()
+              .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
+                  keyStorePath, keyStorePass));
+        }
+
+        final FlightClient client = clientBuilder.build();
     return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
   }
 
