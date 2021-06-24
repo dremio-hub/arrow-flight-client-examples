@@ -30,6 +30,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -45,6 +46,7 @@ public class TestAdhocFlightClient {
   private static final String USERNAME = "dremio";
   private static final String PASSWORD = "dremio123";
   public static final String SIMPLE_QUERY = "select * from (VALUES(1,2,3),(4,5,6))";
+    public static final boolean DISABLE_SERVER_VERIFICATION = true;
 
   public static final String DEFAULT_SCHEMA_PATH = "$scratch";
   public static final String DEFAULT_ROUTING_TAG = "test-routing-tag";
@@ -100,14 +102,41 @@ public class TestAdhocFlightClient {
     client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, clientProperties);
   }
 
-  @Test
-  public void testSimpleQuery() throws Exception {
-    // Create FlightClient connecting to Dremio.
-    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
+  /**
+     * Creates a new FlightClient with client properties set during authentication.
+     *
+     * @param host             the Drmeio host.
+     * @param port             the port Dremio Flight Server Endpoint is running on.
+     * @param user             the Dremio username.
+     * @param pass             the password corresponding to the Dremio username provided.
+     * @param clientProperties Dremio client properties to set during authentication.
+     */
+    private void creatEncryptedFlightClientWithDisableServerVerification(String host, int port,
+                                         String user, String pass,
+                                         HeaderCallOption clientProperties) throws Exception {
+        client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
+            null, DISABLE_SERVER_VERIFICATION, clientProperties);
+    }
+
+    @Test
+    public void testSimpleQuery() throws Exception {
+        // Create FlightClient connecting to Dremio.
+        createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
     // Select
     client.runQuery(SIMPLE_QUERY, true);
   }
+
+    @Test
+    @Ignore("Need to run flight server in encrypted mode.")
+    //TODO Enable encrypted flight server on actions.
+    public void testSimpleQueryWithDisableServerVerification() throws Exception {
+        // Create FlightClient connecting to Dremio.
+        creatEncryptedFlightClientWithDisableServerVerification(HOST, PORT, USERNAME, PASSWORD, null);
+
+        // Select
+        client.runQuery(SIMPLE_QUERY, true);
+    }
 
   @Test
   public void testSimpleQueryWithClientPropertiesDuringAuth() throws Exception {
