@@ -48,14 +48,14 @@ public class QueryRunner {
   private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
 
-  /**
-   * Class that hols all the command line arguments that can be used to run the
-   * examples.
-   */
-  static class CommandLineArguments {
-    @Parameter(names = {"-host", "--hostname"},
-        description = "Dremio co-ordinator hostname")
-    public String host = "localhost";
+      /**
+       * Class that hols all the command line arguments that can be used to run the
+       * examples.
+       */
+    static class CommandLineArguments {
+        @Parameter(names = {"-host", "--hostname"},
+                description = "Dremio co-ordinator hostname")
+        public String host = "localhost";
 
     @Parameter(names = {"-port", "--flightport"},
         description = "Dremio flight server port")
@@ -81,7 +81,11 @@ public class QueryRunner {
         description = "Enable encrypted connection")
     public boolean enableTls = false;
 
-    @Parameter(names = {"-kstpath", "--keyStorePath"},
+    @Parameter(names = {"-dsv", "--disableServerVerification"},
+                description = "Enable disable server verification")
+        public boolean disableServerVerification = false;
+
+        @Parameter(names = {"-kstpath", "--keyStorePath"},
         description = "Path to the jks keystore")
     public String keystorePath = null;
 
@@ -246,39 +250,40 @@ public class QueryRunner {
     }
   }
 
-  /**
-   * Creates a FlightClient instance based on command line arguments provided.
-   *
-   * @param clientProperties Dremio client properties.
-   * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
-   *     and the CredentialCallOption with a bearer token to use in subsequent requests.
-   * @throws Exception If there are issues running queries against the Dremio Arrow Flight
-   *                   Server Endpoint.
-   *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
-   *                   - INVALID_ARGUMENT: issues parsing query input.
-   *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
-   *                   - TIMED_OUT: timed out trying to access Dremio resources.
-   */
-  private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
-    if (ARGUMENTS.enableTls) {
-      Preconditions.checkNotNull(ARGUMENTS.keystorePath,
-          "When TLS is enabled, path to the KeyStore is required.");
-      Preconditions.checkNotNull(ARGUMENTS.keystorePass,
-          "When TLS is enabled, the KeyStore password is required.");
-      return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
-          ARGUMENTS.user, ARGUMENTS.pass,
-          ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
+    /**
+     * Creates a FlightClient instance based on command line arguments provided.
+     *
+     * @param clientProperties Dremio client properties.
+     * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
+     *         and the CredentialCallOption with a bearer token to use in subsequent requests.
+     * @throws Exception If there are issues running queries against the Dremio Arrow Flight
+     *                   Server Endpoint.
+     *         - FlightRuntimeError with Flight status code:
+     *         - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+     *         - INVALID_ARGUMENT: issues parsing query input.
+     *         - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
+     *         - UNAVAILABLE: Drmeio resource is not available.
+     *         - TIMED_OUT: timed out trying to access Dremio resources.
+     */
+    private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+        if (ARGUMENTS.enableTls) {
+            Preconditions.checkNotNull(ARGUMENTS.keystorePath,
+                    "When TLS is enabled, path to the KeyStore is required.");
+            Preconditions.checkNotNull(ARGUMENTS.keystorePass,
+                    "When TLS is enabled, the KeyStore password is required.");
+            return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
+                ARGUMENTS.host, ARGUMENTS.port,
+                ARGUMENTS.user, ARGUMENTS.pass,
+                ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
+                ARGUMENTS.disableServerVerification,
           clientProperties);
-    } else {
-      return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
-          ARGUMENTS.user, ARGUMENTS.pass,
-          clientProperties);
+        } else {
+            return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
+                    ARGUMENTS.host, ARGUMENTS.port,
+                    ARGUMENTS.user, ARGUMENTS.pass,
+                    clientProperties);
+        }
     }
-  }
 
   /**
    * Given a map of client properties strings, insert each entry into a Flight CallHeaders object.
