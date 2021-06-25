@@ -82,7 +82,7 @@ public class QueryRunner {
     public boolean enableTls = false;
 
     @Parameter(names = {"-dsv", "--disableServerVerification"},
-                description = "Enable disable server verification")
+                description = "Disable TLS server verification.")
         public boolean disableServerVerification = false;
 
         @Parameter(names = {"-kstpath", "--keyStorePath"},
