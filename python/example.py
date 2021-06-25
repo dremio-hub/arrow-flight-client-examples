@@ -77,7 +77,7 @@ def parse_arguments():
     parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection',
       required=False, default=False, action='store_true')
     parser.add_argument('-disableServerVerification', '--disableServerVerification', dest='disableServerVerification',
-                        help='Disable server verification',
+                        help='Disable TLS server verification',
                         required=False, default=False)
     parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
@@ -107,7 +107,7 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
                     connection_args["tls_root_certs"] = root_certs.read()
             elif disableServerVerification:
                 # Connect to the server endpoint with server verification disabled.
-                print('[INFO] Disabling server verification.')
+                print('[INFO] Disable TLS server verification.')
                 connection_args['disable_server_verification'] = disableServerVerification
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
