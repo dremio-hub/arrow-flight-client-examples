@@ -49,7 +49,7 @@ public class QueryRunner {
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
 
       /**
-       * Class that hols all the command line arguments that can be used to run the
+       * Class that holds all the command line arguments that can be used to run the
        * examples.
        */
     static class CommandLineArguments {
