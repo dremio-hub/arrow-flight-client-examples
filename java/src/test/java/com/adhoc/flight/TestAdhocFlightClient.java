@@ -105,7 +105,7 @@ public class TestAdhocFlightClient {
   /**
      * Creates a new FlightClient with client properties set during authentication.
      *
-     * @param host             the Drmeio host.
+     * @param host             the Dremio host.
      * @param port             the port Dremio Flight Server Endpoint is running on.
      * @param user             the Dremio username.
      * @param pass             the password corresponding to the Dremio username provided.
