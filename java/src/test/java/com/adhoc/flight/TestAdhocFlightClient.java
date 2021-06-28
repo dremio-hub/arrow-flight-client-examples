@@ -68,8 +68,7 @@ public class TestAdhocFlightClient {
   @After
   public void shutdown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
-    AutoCloseables.close(client,
-    allocator );
+    AutoCloseables.close(client, allocator);
     client = null;
   }
 
@@ -117,9 +116,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties) throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
       null, DISABLE_SERVER_VERIFICATION, clientProperties);
-  }
-
-  @Test
+  }@Test
   public void testSimpleQuery() throws Exception {
     // Create FlightClient connecting to Dremio.
     createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
@@ -182,28 +179,28 @@ public class TestAdhocFlightClient {
   @Test
   public void testBadHostname() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-      () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD));
+        () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPort() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-      () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD));
+        () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPassword() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-      () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD"));
+        () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD"));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
   }
 
   @Test
   public void testNonExistentUser() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-      () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
+        () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
 
   }
