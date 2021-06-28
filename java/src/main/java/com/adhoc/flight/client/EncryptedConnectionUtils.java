@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.adhoc.flight.client;
 
 import java.io.ByteArrayInputStream;
@@ -32,38 +33,40 @@ import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
  * Utility methods for encryption private keys.
  */
 public class EncryptedConnectionUtils {
-    private EncryptedConnectionUtils(){}
+  private EncryptedConnectionUtils() {
+  }
 
-    /**
-     * Generates an InputStream that contains certificates for a private key.
-     * @param keyStorePath path to the keystore
-     * @param keyStorePassword password for the keystore
-     * @return a new InputStream containing the certificates
-     * @throws Exception if there was an error looking up the private key or certificates
-     */
-    public static InputStream getCertificateStream(String keyStorePath, String keyStorePassword) throws Exception {
-        final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        try (final InputStream keyStoreStream = Files.newInputStream(Paths.get(keyStorePath))) {
-            keyStore.load(keyStoreStream, keyStorePassword.toCharArray());
-        }
-
-        final Enumeration<String> aliases = keyStore.aliases();
-        while (aliases.hasMoreElements()) {
-            final String alias = aliases.nextElement();
-            if (keyStore.isCertificateEntry(alias)) {
-                final Certificate certificates = keyStore.getCertificate(alias);
-                return toInputStream(certificates);
-            }
-        }
-        throw new RuntimeException("Keystore did not have a private key.");
+  /**
+   * Generates an InputStream that contains certificates for a private key.
+   *
+   * @param keyStorePath     path to the keystore
+   * @param keyStorePassword password for the keystore
+   * @return a new InputStream containing the certificates
+   * @throws Exception if there was an error looking up the private key or certificates
+   */
+  public static InputStream getCertificateStream(String keyStorePath, String keyStorePassword) throws Exception {
+    final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+    try (final InputStream keyStoreStream = Files.newInputStream(Paths.get(keyStorePath))) {
+      keyStore.load(keyStoreStream, keyStorePassword.toCharArray());
     }
 
-    private static InputStream toInputStream(Certificate certificate) throws IOException {
-        try (final StringWriter writer = new StringWriter();
-            final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
-            pemWriter.writeObject(certificate);
-            pemWriter.flush();
-            return new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8));
-        }
+    final Enumeration<String> aliases = keyStore.aliases();
+    while (aliases.hasMoreElements()) {
+      final String alias = aliases.nextElement();
+      if (keyStore.isCertificateEntry(alias)) {
+        final Certificate certificates = keyStore.getCertificate(alias);
+        return toInputStream(certificates);
+      }
     }
+    throw new RuntimeException("Keystore did not have a private key.");
+  }
+
+  private static InputStream toInputStream(Certificate certificate) throws IOException {
+    try (final StringWriter writer = new StringWriter();
+         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+      pemWriter.writeObject(certificate);
+      pemWriter.flush();
+      return new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8));
+    }
+  }
 }

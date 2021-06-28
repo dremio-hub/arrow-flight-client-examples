@@ -12,6 +12,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <arrow.version>3.0.0</arrow.version>
+        <dep.guava.version>20.0</dep.guava.version>
+        <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
 
     <repositories>
@@ -78,6 +80,52 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.1.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>8.19</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                        <version>${dep.guava.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                        <version>1.7.5</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <configLocation>checkstyle/checkstyle.xml</configLocation>
+                    <headerLocation>checkstyle/checkstyle.license</headerLocation>
+                    <suppressionsLocation>checkstyle/suppressions.xml</suppressionsLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <encoding>UTF-8</encoding>
+                    <consoleOutput>true</consoleOutput>
+                    <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+                    <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+                    <violationSeverity>warning</violationSeverity>
+                    <format>xml</format>
+                    <format>html</format>
+                    <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+                    <linkXRef>false</linkXRef>
                 </configuration>
             </plugin>
             <plugin>
