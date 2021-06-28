@@ -43,7 +43,7 @@ public class QueryRunner {
   private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
   private static final String CREATE_DEMO_TABLE =
-    "CREATE TABLE $scratch.dremio_flight_demo_table as select * from (VALUES(1,2,3),(4,5,6))";
+      "CREATE TABLE $scratch.dremio_flight_demo_table as select * from (VALUES(1,2,3),(4,5,6))";
   private static final String DROP_DEMO_TABLE = "DROP TABLE $scratch.dremio_flight_demo_table";
   private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
@@ -58,27 +58,27 @@ public class QueryRunner {
     public String host = "localhost";
 
     @Parameter(names = {"-port", "--flightport"},
-      description = "Dremio flight server port")
+        description = "Dremio flight server port")
     public int port = 32010;
 
     @Parameter(names = {"-user", "--username"},
-      description = "Dremio username")
+        description = "Dremio username")
     public String user = "dremio";
 
     @Parameter(names = {"-pass", "--password"},
-      description = "Dremio password")
+        description = "Dremio password")
     public String pass = "dremio123";
 
     @Parameter(names = {"-query", "--sqlQuery"},
-      description = "SQL query to test")
+        description = "SQL query to test")
     public String query = null;
 
     @Parameter(names = {"-binpath", "--saveBinaryPath"},
-      description = "path to save the SQL result binary to")
+        description = "path to save the SQL result binary to")
     public String pathToSaveQueryResultsTo = null;
 
     @Parameter(names = {"-tls", "--tls"},
-      description = "Enable encrypted connection")
+        description = "Enable encrypted connection")
     public boolean enableTls = false;
 
     @Parameter(names = {"-dsv", "--disableServerVerification"},
@@ -86,19 +86,19 @@ public class QueryRunner {
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
-      description = "Path to the jks keystore")
+        description = "Path to the jks keystore")
     public String keystorePath = null;
 
     @Parameter(names = {"-kstpass", "--keyStorePassword"},
-      description = "The jks keystore password")
+        description = "The jks keystore password")
     public String keystorePass = null;
 
     @Parameter(names = {"-demo", "--runDemo"},
-      description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
+        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
     public boolean runDemo = false;
 
     @Parameter(names = {"-h", "--help"},
-      description = "show usage", help = true)
+        description = "show usage", help = true)
     public boolean help = false;
   }
 
@@ -123,15 +123,15 @@ public class QueryRunner {
      * Authentication
      */
     System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
-      "authorization header authentication.");
+        "authorization header authentication.");
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
     System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
     System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
-      "routing-tag", "test-routing-tag",
-      "routing-queue", "Low Cost User Queries");
+        "routing-tag", "test-routing-tag",
+        "routing-queue", "Low Cost User Queries");
     final HeaderCallOption routingCallOption = createClientProperties(properties);
 
     // Authenticates FlightClient with routing properties.
@@ -154,7 +154,7 @@ public class QueryRunner {
 
       // Set default schema path to "$scratch" for the next FlightRPC request.
       final Map<String, String> schemaProperty = ImmutableMap.of(
-        "schema", DEMO_TABLE_SCHEMA);
+          "schema", DEMO_TABLE_SCHEMA);
       final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
       // Run query "select * from dremio_flight_demo_table" without schema path.
       client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, true);
@@ -237,12 +237,16 @@ public class QueryRunner {
   public static void main(String[] args) throws Exception {
     parseCommandLineArgs(args);
 
-    try {if (ARGUMENTS.help) {
-      System.exit(1);
-    } else if (ARGUMENTS.runDemo) {
-      runDemo();
-    } else {
-      runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+    try {
+      if (ARGUMENTS.help) {
+        System.exit(1);
+      } else if (ARGUMENTS.runDemo) {
+        runDemo();
+      } else {
+        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+      }
+    } finally {
+      BUFFER_ALLOCATOR.close();
     }
   }finally {
       BUFFER_ALLOCATOR.close();
@@ -254,7 +258,7 @@ public class QueryRunner {
    *
    * @param clientProperties Dremio client properties.
    * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
-   * and the CredentialCallOption with a bearer token to use in subsequent requests.
+   *     and the CredentialCallOption with a bearer token to use in subsequent requests.
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
@@ -267,20 +271,19 @@ public class QueryRunner {
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
     if (ARGUMENTS.enableTls) {
       Preconditions.checkNotNull(ARGUMENTS.keystorePath,
-        "When TLS is enabled, path to the KeyStore is required.");
+          "When TLS is enabled, path to the KeyStore is required.");
       Preconditions.checkNotNull(ARGUMENTS.keystorePass,
-        "When TLS is enabled, the KeyStore password is required.");
+          "When TLS is enabled, the KeyStore password is required.");
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
-        ARGUMENTS.host, ARGUMENTS.port,
-        ARGUMENTS.user, ARGUMENTS.pass,
-        ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
-        ARGUMENTS.disableServerVerification,
-        clientProperties);
+          ARGUMENTS.host, ARGUMENTS.port,
+          ARGUMENTS.user, ARGUMENTS.pass,
+          ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
+        ARGUMENTS.disableServerVerification,  clientProperties);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
-        ARGUMENTS.host, ARGUMENTS.port,
-        ARGUMENTS.user, ARGUMENTS.pass,
-        clientProperties);
+          ARGUMENTS.host, ARGUMENTS.port,
+          ARGUMENTS.user, ARGUMENTS.pass,
+          clientProperties);
     }
   }
 
