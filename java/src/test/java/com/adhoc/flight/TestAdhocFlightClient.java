@@ -113,7 +113,8 @@ public class TestAdhocFlightClient {
    */
   private void creatEncryptedFlightClientWithDisableServerVerification(String host, int port,
                                                                        String user, String pass,
-                                                                       HeaderCallOption clientProperties) throws Exception {
+                                                                       HeaderCallOption clientProperties)
+      throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
       null, DISABLE_SERVER_VERIFICATION, clientProperties);
   }@Test

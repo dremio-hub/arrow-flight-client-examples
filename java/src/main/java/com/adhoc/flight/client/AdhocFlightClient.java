@@ -62,7 +62,7 @@ public class AdhocFlightClient implements AutoCloseable {
    * @param keyStorePass the password to the JKS.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *         with bearer token for subsequent FlightRPC requests.
+   *      with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
    */
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
@@ -75,25 +75,26 @@ public class AdhocFlightClient implements AutoCloseable {
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
     final ClientIncomingAuthHeaderMiddleware.Factory factory =
-            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
     final FlightClient .Builder clientBuilder = FlightClient.builder();
     if (verifyServer) {
       clientBuilder
-        .allocator(allocator)
-        .location(Location.forGrpcTls(host, port))
-        .intercept(factory)
-        .useTls()
-        .verifyServer(false);
+          .allocator(allocator)
+          .location(Location.forGrpcTls(host, port))
+          .intercept(factory)
+          .useTls()
+          .verifyServer(false);
     } else {
-      clientBuilder        .allocator(allocator)
-            .location(Location.forGrpcTls(host, port))
-            .intercept(factory)
-            .useTls()
-            .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
-                    keyStorePath, keyStorePass));
-            }
+      clientBuilder
+          .allocator(allocator)
+          .location(Location.forGrpcTls(host, port))
+          .intercept(factory)
+          .useTls()
+          .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
+            keyStorePath, keyStorePass));
+    }
 
     final FlightClient client = clientBuilder.build();
     return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
@@ -109,7 +110,7 @@ public class AdhocFlightClient implements AutoCloseable {
    * @param pass the corresponding password.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *         with bearer token for subsequent FlightRPC requests.
+   *      with bearer token for subsequent FlightRPC requests.
    */
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
           String host, int port,
@@ -119,14 +120,14 @@ public class AdhocFlightClient implements AutoCloseable {
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
     final ClientIncomingAuthHeaderMiddleware.Factory factory =
-            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
     final FlightClient client = FlightClient.builder()
-            .allocator(allocator)
-            .location(Location.forGrpcInsecure(host, port))
-            .intercept(factory)
-            .build();
+        .allocator(allocator)
+        .location(Location.forGrpcInsecure(host, port))
+        .intercept(factory)
+        .build();
     return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
   }
 
