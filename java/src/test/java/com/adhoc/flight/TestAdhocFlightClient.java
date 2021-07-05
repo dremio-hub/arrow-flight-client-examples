@@ -46,7 +46,7 @@ public class TestAdhocFlightClient {
   private static final String USERNAME = "dremio";
   private static final String PASSWORD = "dremio123";
   public static final String SIMPLE_QUERY = "select * from (VALUES(1,2,3),(4,5,6))";
-    public static final boolean DISABLE_SERVER_VERIFICATION = true;
+  public static final boolean DISABLE_SERVER_VERIFICATION = true;
 
   public static final String DEFAULT_SCHEMA_PATH = "$scratch";
   public static final String DEFAULT_ROUTING_TAG = "test-routing-tag";
@@ -68,7 +68,8 @@ public class TestAdhocFlightClient {
   @After
   public void shutdown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
-    AutoCloseables.close(client, allocator);
+    AutoCloseables.close(client,
+    allocator );
     client = null;
   }
 
@@ -103,40 +104,40 @@ public class TestAdhocFlightClient {
   }
 
   /**
-     * Creates a new FlightClient with client properties set during authentication.
-     *
-     * @param host             the Dremio host.
-     * @param port             the port Dremio Flight Server Endpoint is running on.
-     * @param user             the Dremio username.
-     * @param pass             the password corresponding to the Dremio username provided.
-     * @param clientProperties Dremio client properties to set during authentication.
-     */
-    private void creatEncryptedFlightClientWithDisableServerVerification(String host, int port,
-                                         String user, String pass,
-                                         HeaderCallOption clientProperties) throws Exception {
-        client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
-            null, DISABLE_SERVER_VERIFICATION, clientProperties);
-    }
+   * Creates a new FlightClient with client properties set during authentication.
+   *
+   * @param host             the Dremio host.
+   * @param port             the port Dremio Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the password corresponding to the Dremio username provided.
+   * @param clientProperties Dremio client properties to set during authentication.
+   */
+  private void creatEncryptedFlightClientWithDisableServerVerification(String host, int port,
+                                                                       String user, String pass,
+                                                                       HeaderCallOption clientProperties) throws Exception {
+    client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
+      null, DISABLE_SERVER_VERIFICATION, clientProperties);
+  }
 
-    @Test
-    public void testSimpleQuery() throws Exception {
-        // Create FlightClient connecting to Dremio.
-        createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
+  @Test
+  public void testSimpleQuery() throws Exception {
+    // Create FlightClient connecting to Dremio.
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
     // Select
     client.runQuery(SIMPLE_QUERY, true);
   }
 
-    @Test
-    @Ignore("Need to run flight server in encrypted mode.")
-    //TODO Enable encrypted flight server on actions.
-    public void testSimpleQueryWithDisableServerVerification() throws Exception {
-        // Create FlightClient connecting to Dremio.
-        creatEncryptedFlightClientWithDisableServerVerification(HOST, PORT, USERNAME, PASSWORD, null);
+  @Test
+  @Ignore("Need to run flight server in encrypted mode.")
+  //TODO Enable encrypted flight server on actions.
+  public void testSimpleQueryWithDisableServerVerification() throws Exception {
+    // Create FlightClient connecting to Dremio.
+    creatEncryptedFlightClientWithDisableServerVerification(HOST, PORT, USERNAME, PASSWORD, null);
 
-        // Select
-        client.runQuery(SIMPLE_QUERY, true);
-    }
+    // Select
+    client.runQuery(SIMPLE_QUERY, true);
+  }
 
   @Test
   public void testSimpleQueryWithClientPropertiesDuringAuth() throws Exception {
@@ -181,28 +182,28 @@ public class TestAdhocFlightClient {
   @Test
   public void testBadHostname() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD));
+      () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPort() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD));
+      () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPassword() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD"));
+      () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD"));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
   }
 
   @Test
   public void testNonExistentUser() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
+      () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
 
   }
