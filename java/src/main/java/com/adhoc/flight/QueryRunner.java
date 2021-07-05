@@ -54,7 +54,7 @@ public class QueryRunner {
    */
   static class CommandLineArguments {
     @Parameter(names = {"-host", "--hostname"},
-      description = "Dremio co-ordinator hostname")
+        description = "Dremio co-ordinator hostname")
     public String host = "localhost";
 
     @Parameter(names = {"-port", "--flightport"},
@@ -82,7 +82,7 @@ public class QueryRunner {
     public boolean enableTls = false;
 
     @Parameter(names = {"-dsv", "--disableServerVerification"},
-      description = "Disable TLS server verification.")
+        description = "Disable TLS server verification.")
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
@@ -258,7 +258,7 @@ public class QueryRunner {
    *
    * @param clientProperties Dremio client properties.
    * @return an instance of AdhocFlightClient encapsulating the connected FlightClient instance
-   *     and the CredentialCallOption with a bearer token to use in subsequent requests.
+   *      and the CredentialCallOption with a bearer token to use in subsequent requests.
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
