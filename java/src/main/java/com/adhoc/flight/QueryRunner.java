@@ -278,7 +278,7 @@ public class QueryRunner {
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
-        ARGUMENTS.disableServerVerification,  clientProperties);
+          ARGUMENTS.disableServerVerification, clientProperties);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,

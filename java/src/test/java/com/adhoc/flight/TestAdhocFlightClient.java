@@ -117,7 +117,9 @@ public class TestAdhocFlightClient {
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
       null, DISABLE_SERVER_VERIFICATION, clientProperties);
-  }@Test
+  }
+
+  @Test
   public void testSimpleQuery() throws Exception {
     // Create FlightClient connecting to Dremio.
     createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
