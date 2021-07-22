@@ -70,7 +70,7 @@ public class AdhocFlightClient implements AutoCloseable {
           String user, String pass,
           String keyStorePath,
           String keyStorePass,
-          boolean verifyServer,HeaderCallOption clientProperties) throws Exception {
+          boolean verifyServer, HeaderCallOption clientProperties) throws Exception {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
