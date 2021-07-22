@@ -248,9 +248,6 @@ public class QueryRunner {
     } finally {
       BUFFER_ALLOCATOR.close();
     }
-  }finally {
-      BUFFER_ALLOCATOR.close();
-    }
   }
 
   /**
