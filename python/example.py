@@ -15,6 +15,9 @@
 """
 import argparse
 import sys
+import pyarrow as pa
+import pyarrow.csv as csv
+
 
 from pyarrow import flight
 
@@ -63,6 +66,7 @@ def parse_arguments():
     """
     Parses the command-line arguments supplied to the script.
     """
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('-host', '--hostname', type=str, help='Dremio co-ordinator hostname',
       default='localhost')
@@ -81,11 +85,12 @@ def parse_arguments():
                         required=False, default=False)
     parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
+    parser.add_argument('-output', '--output-file', type=str, help='output file', required=False, default='output.csv')
     return parser.parse_args()
 
 
 def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
-  tls, certs, disableServerVerification):
+  tls, certs, disableServerVerificationi, output_file):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
@@ -156,8 +161,13 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
 
             # Retrieve the result set as a stream of Arrow record batches.
             reader = client.do_get(flight_info.endpoints[0].ticket, options)
+            print(type(reader))
             print('[INFO] Reading query results from Dremio')
-            print(reader.read_pandas())
+            res_table=(reader.read_all())
+            with csv.CSVWriter(output_file, res_table.schema) as writer:
+                writer.write_table(res_table)
+            print('[INFO] Output results to ' + str(output_file))
+
 
     except Exception as exception:
         print("[ERROR] Exception: {}".format(repr(exception)))
@@ -169,4 +179,4 @@ if __name__ == "__main__":
     args = parse_arguments()
     # Connect to Dremio Arrow Flight server endpoint.
     connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username,
-      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.disableServerVerification)
+      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.disableServerVerification, args.output_file)
