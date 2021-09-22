@@ -16,10 +16,20 @@
 
 package com.adhoc.flight.client;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+
+import javax.annotation.Nullable;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -34,6 +44,7 @@ import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import com.adhoc.flight.utils.QueryUtils;
 
@@ -207,47 +218,53 @@ public class AdhocFlightClient implements AutoCloseable {
    * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
    * provided SQL query.
    *
-   * @param query the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *        should be saved.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query,
-          HeaderCallOption headerCallOption,
-          File fileToSaveTo, boolean printToConsole) throws Exception {
-
-    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
-
-    try (FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption)) {
-      if (!stream.next()) {
-        return;
-      }
-
-      try (VectorSchemaRoot root = stream.getRoot()) {
-        if (printToConsole) {
-          QueryUtils.printResults(root);
-        }
-        if (fileToSaveTo != null) {
-          QueryUtils.writeToBinaryFile(root, fileToSaveTo);
-        }
-      }
-    }
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
    * @param query            the SQL query to execute.
    * @param headerCallOption client properties to execute provided SQL query with.
    * @param fileToSaveTo     the file to which the binary data of the resulting {@link VectorSchemaRoot}
    *                         should be saved.
+   * @param printToConsole   whether the query results should be printed to the console.
    * @throws Exception if an error occurs during query execution.
    */
-  public void runQuery(String query, HeaderCallOption headerCallOption, File fileToSaveTo) throws Exception {
-    runQuery(query, headerCallOption, fileToSaveTo, false);
+  public void runQuery(final String query,
+                       final HeaderCallOption headerCallOption,
+                       final @Nullable File fileToSaveTo,
+                       final boolean printToConsole) throws Exception {
+
+    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
+         final OutputStream rootBinaryData = fileToSaveTo == null ? null : new FileOutputStream(fileToSaveTo)) {
+      readBytesFromStreamRoot(
+          flightStream, rootBinaryData, printToConsole ? singletonList(QueryUtils::printResults) : emptyList());
+    }
+  }
+
+  /**
+   * Reads the binary data from {@link FlightStream#getRoot}.
+   *
+   * @param flightStream  the {@link FlightStream} from witch to fetch the {@link VectorSchemaRoot}
+   *                      to read the bytes from.
+   * @param outputStream  the {@link ByteArrayOutputStream} for storing the binary data.
+   * @param batchConsumer actions to take on each iteration/batch update from {@link FlightStream#next}.
+   * @throws IOException on error.
+   */
+  protected static void readBytesFromStreamRoot(final FlightStream flightStream,
+                                                final @Nullable OutputStream outputStream,
+                                                final List<Consumer<VectorSchemaRoot>> batchConsumer)
+      throws IOException {
+    try (final VectorSchemaRoot dataRoot = flightStream.getRoot()) {
+      if (outputStream == null) {
+        return;
+      }
+      try (final ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(dataRoot, null, outputStream)) {
+        arrowStreamWriter.start();
+        while (flightStream.next()) {
+          batchConsumer.forEach(consumer -> consumer.accept(dataRoot));
+          arrowStreamWriter.writeBatch();
+        }
+        arrowStreamWriter.end();
+      }
+    }
   }
 
   /**
@@ -275,19 +292,6 @@ public class AdhocFlightClient implements AutoCloseable {
    */
   public void runQuery(String query, File fileToSaveTo, boolean printToConsole) throws Exception {
     runQuery(query, null, fileToSaveTo, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query        the SQL query to execute.
-   * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *                     should be saved.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, File fileToSaveTo) throws Exception {
-    runQuery(query, null, fileToSaveTo, false);
   }
 
   /**
