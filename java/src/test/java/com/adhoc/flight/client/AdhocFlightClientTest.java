@@ -113,7 +113,7 @@ public final class AdhocFlightClientTest {
       responseRoots.add(ROOT_BATCH_PROVIDERS.get(currentBatch).call());
       return true;
     });
-    unifiedBatches = unifyBatchesIntoSingleRoot(flightStream, ALLOCATOR);
+    unifiedBatches = unifyBatchesIntoSingleRoot(flightStream);
   }
 
   @After

@@ -18,15 +18,15 @@ package com.adhoc.flight.client;
 
 import static java.util.Objects.requireNonNull;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.Queue;
 
 import javax.annotation.Nullable;
 
@@ -44,13 +44,10 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import com.adhoc.flight.utils.QueryUtils;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.util.VectorSchemaRootAppender;
 
 /**
@@ -259,33 +256,19 @@ public final class AdhocFlightClient implements AutoCloseable {
    *
    * @param flightStream the {@link FlightStream} instance from which to fetch the batches to unify.
    * @return a new root.
-   * @throws Exception on error.
    */
-  private VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) throws Exception {
-    return unifyBatchesIntoSingleRoot(flightStream, allocator);
-  }
-
-  /**
-   * Unifies all batches from the provided {@code flightStream} onto a new {@link VectorSchemaRoot}.
-   *
-   * @param flightStream the {@link FlightStream} instance from which to fetch the batches to unify.
-   * @param allocator    the {@link BufferAllocator} to use.
-   * @return a new root.
-   * @throws Exception on error.
-   */
-  @VisibleForTesting
-  static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream, final BufferAllocator allocator)
-      throws Exception {
-    final VectorSchemaRoot newRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
-    while (flightStream.next()) {
-      try (final VectorSchemaRoot oldRoot = flightStream.getRoot()) {
-        VectorSchemaRootAppender.append(newRoot, oldRoot);
-      } catch (final Exception e) {
-        AutoCloseables.close(newRoot);
-        throw e;
+  static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) {
+    final Queue<VectorSchemaRoot> roots = new LinkedList<>();
+    try {
+      while (flightStream.next()) {
+        roots.add(flightStream.getRoot());
       }
+      final VectorSchemaRoot baseRoot = roots.remove();
+      VectorSchemaRootAppender.append(baseRoot, roots.toArray(new VectorSchemaRoot[0]));
+      return baseRoot;
+    } finally {
+      roots.forEach(AutoCloseables::closeNoChecked);
     }
-    return newRoot;
   }
 
   /**
