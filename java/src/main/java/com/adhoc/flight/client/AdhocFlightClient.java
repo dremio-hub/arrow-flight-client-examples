@@ -43,6 +43,7 @@ import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -50,6 +51,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import com.adhoc.flight.utils.QueryUtils;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.util.VectorSchemaRootAppender;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -259,12 +261,25 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @return a new root.
    * @throws Exception on error.
    */
-  VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) throws Exception {
+  private VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) throws Exception {
+    return unifyBatchesIntoSingleRoot(flightStream, allocator);
+  }
+
+  /**
+   * Unifies all batches from the provided {@code flightStream} onto a new {@link VectorSchemaRoot}.
+   *
+   * @param flightStream the {@link FlightStream} instance from which to fetch the batches to unify.
+   * @param allocator    the {@link BufferAllocator} to use.
+   * @return a new root.
+   * @throws Exception on error.
+   */
+  @VisibleForTesting
+  static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream, final BufferAllocator allocator)
+      throws Exception {
     final VectorSchemaRoot newRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
     while (flightStream.next()) {
-      try (final VectorSchemaRoot oldRoot = flightStream.getRoot();
-           final ArrowRecordBatch arrowRecordBatch = new VectorUnloader(oldRoot).getRecordBatch()) {
-        new VectorLoader(newRoot).load(arrowRecordBatch);
+      try (final VectorSchemaRoot oldRoot = flightStream.getRoot()) {
+        VectorSchemaRootAppender.append(newRoot, oldRoot);
       } catch (final Exception e) {
         AutoCloseables.close(newRoot);
         throw e;
@@ -280,6 +295,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param outputStream     the {@link OutputStream} to save to.
    * @throws IOException on error.
    */
+  @VisibleForTesting
   static void outputRootBinaryDataToStream(final VectorSchemaRoot vectorSchemaRoot,
                                            final OutputStream outputStream)
       throws IOException {
@@ -288,34 +304,6 @@ public final class AdhocFlightClient implements AutoCloseable {
       arrowStreamWriter.start();
       arrowStreamWriter.writeBatch();
       arrowStreamWriter.end();
-    }
-  }
-
-  /**
-   * Reads the binary data from {@link FlightStream#getRoot}.
-   *
-   * @param flightStream  the {@link FlightStream} from witch to fetch the {@link VectorSchemaRoot}
-   *                      to read the bytes from.
-   * @param outputStream  the {@link ByteArrayOutputStream} for storing the binary data.
-   * @param batchConsumer actions to take on each iteration/batch update from {@link FlightStream#next}.
-   * @throws IOException on error.
-   */
-  static void readBytesFromStreamRoot(final FlightStream flightStream,
-                                      final @Nullable OutputStream outputStream,
-                                      final List<Consumer<VectorSchemaRoot>> batchConsumer)
-      throws IOException {
-    try (final VectorSchemaRoot dataRoot = flightStream.getRoot()) {
-      if (outputStream == null) {
-        return;
-      }
-      try (final ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(dataRoot, null, outputStream)) {
-        arrowStreamWriter.start();
-        while (flightStream.next()) {
-          batchConsumer.forEach(consumer -> consumer.accept(dataRoot));
-          arrowStreamWriter.writeBatch();
-        }
-        arrowStreamWriter.end();
-      }
     }
   }
 
