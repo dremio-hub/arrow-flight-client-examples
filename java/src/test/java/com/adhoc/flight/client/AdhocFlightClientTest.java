@@ -16,33 +16,16 @@
 
 package com.adhoc.flight.client;
 
-import static com.adhoc.flight.client.AdhocFlightClient.readBytesFromStreamRoot;
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
-import static org.apache.arrow.util.AutoCloseables.close;
-import static org.apache.arrow.vector.types.Types.MinorType.UINT1;
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.Mockito.when;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.logging.Logger;
-import java.util.stream.IntStream;
-
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -52,21 +35,42 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
+
+import static com.adhoc.flight.client.AdhocFlightClient.outputRootBinaryDataToStream;
+import static com.adhoc.flight.client.AdhocFlightClient.unifyBatchesIntoSingleRoot;
+import static java.util.Collections.singletonList;
+import static java.util.stream.IntStream.range;
+import static org.apache.arrow.util.AutoCloseables.close;
+import static org.apache.arrow.vector.types.Types.MinorType.UINT1;
+import static org.hamcrest.CoreMatchers.is;
+import static org.mockito.Mockito.when;
+
 /**
  * Tests for {@link AdhocFlightClient}.
  */
 @RunWith(MockitoJUnitRunner.class)
 public final class AdhocFlightClientTest {
 
-  private static final Logger LOGGER = Logger.getLogger(AdhocFlightClientTest.class.getName());
   private static final Field COLUMN_FIELD = Field.nullable("col", UINT1.getType());
   private static final Schema SCHEMA = new Schema(singletonList(COLUMN_FIELD));
-  private static final int BATCH_COUNT = 10;
-  private static final List<Consumer<VectorSchemaRoot>> BATCHES = new ArrayList<>(BATCH_COUNT);
-  private final List<String> expectedTsvContentsForBatches = new ArrayList<>(BATCH_COUNT);
-  private final BufferAllocator allocator = new RootAllocator();
-  private final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(SCHEMA, allocator);
-  private final AtomicInteger currentBatch = new AtomicInteger();
+  private static final int EXPECTED_BATCH_COUNT = Byte.MAX_VALUE;
+  private static final int EXPECTED_ROW_COUNT = Short.MAX_VALUE;
+  private static final BufferAllocator ALLOCATOR = new RootAllocator();
+  private static final VectorSchemaRoot EXPECTED_FINAL_ROOT = VectorSchemaRoot.create(SCHEMA, ALLOCATOR);
+  private static final List<Callable<VectorSchemaRoot>> ROOT_BATCH_PROVIDERS = new ArrayList<>(EXPECTED_BATCH_COUNT);
+  private static final Random RANDOM = new Random(Long.SIZE);
+  private final Queue<VectorSchemaRoot> responseRoots = new LinkedList<>();
+  private final AtomicInteger currentBatch = new AtomicInteger(-1);
+  private VectorSchemaRoot unifiedBatches;
   @Mock
   private FlightStream flightStream;
   @Rule
@@ -74,69 +78,71 @@ public final class AdhocFlightClientTest {
 
   @BeforeClass
   public static void setUpBeforeClass() {
-    IntStream.range(0, BATCH_COUNT)
-        .forEach(i -> BATCHES.add(root -> ((UInt1Vector) root.getVector(COLUMN_FIELD)).setSafe(i, i)));
+    populateExpectedRoot();
+    sliceExpectedRootIntoManyBatchesAndRegister();
+  }
+
+  private static void populateExpectedRoot() {
+    final UInt1Vector col = ((UInt1Vector) EXPECTED_FINAL_ROOT.getVector(COLUMN_FIELD));
+    range(0, EXPECTED_BATCH_COUNT).forEach(i -> col.setSafe(i, RANDOM.nextInt()));
+    EXPECTED_FINAL_ROOT.setRowCount(EXPECTED_ROW_COUNT);
+  }
+
+  private static void sliceExpectedRootIntoManyBatchesAndRegister() {
+    final int rowCount = EXPECTED_FINAL_ROOT.getRowCount();
+    final int rowsPerBatch = rowCount / EXPECTED_BATCH_COUNT;
+    final int remainderForLastBatch = rowCount % EXPECTED_BATCH_COUNT;
+    final int lastBatchIndex = EXPECTED_BATCH_COUNT - 1;
+    final IntConsumer registerSlice =
+        slice ->
+            ROOT_BATCH_PROVIDERS.add(
+                () -> EXPECTED_FINAL_ROOT.slice(
+                    slice * rowsPerBatch,
+                    rowsPerBatch + ((slice == lastBatchIndex) ? remainderForLastBatch : 0)));
+    range(0, lastBatchIndex).forEach(registerSlice);
+    registerSlice.accept(lastBatchIndex);
   }
 
   @Before
-  public void setUp() {
-    when(flightStream.getRoot()).thenReturn(vectorSchemaRoot);
+  public void setUp() throws Exception {
+    when(flightStream.getSchema()).thenReturn(SCHEMA);
+    when(flightStream.getRoot()).thenAnswer(flightStreamMock -> responseRoots.poll());
     when(flightStream.next()).thenAnswer(flightStreamMock -> {
       final int currentBatch = this.currentBatch.incrementAndGet();
-      if (currentBatch < BATCH_COUNT) {
-        BATCHES.get(currentBatch).accept(vectorSchemaRoot);
-        expectedTsvContentsForBatches.add(vectorSchemaRoot.contentToTSVString());
-        return true;
-      }
-      return false;
+      if (currentBatch >= EXPECTED_BATCH_COUNT) return false;
+      responseRoots.add(ROOT_BATCH_PROVIDERS.get(currentBatch).call());
+      return true;
     });
-    vectorSchemaRoot.setRowCount(BATCH_COUNT);
+    unifiedBatches = unifyBatchesIntoSingleRoot(flightStream, ALLOCATOR);
   }
 
   @After
   public void tearDown() throws Exception {
-    close(vectorSchemaRoot, flightStream, allocator);
+    responseRoots.forEach(AutoCloseables::closeNoChecked);
+    close(unifiedBatches, flightStream);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    close(EXPECTED_FINAL_ROOT, ALLOCATOR);
   }
 
   @Test
-  public void readBytesFromStreamRootNonNullOutputStreamTest() throws IOException {
-    final byte[] bytes;
-    final List<String> actualTsvContentsFromBatches = new ArrayList<>(BATCH_COUNT);
-    try (final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-      final AtomicInteger iterationCount = new AtomicInteger();
-      readBytesFromStreamRoot(
-          flightStream,
-          byteArrayOutputStream,
-          singletonList(root ->
-              LOGGER.info(
-                  format("Expected batch #%d:%n%s", iterationCount.getAndIncrement(), root.contentToTSVString()))));
-      bytes = byteArrayOutputStream.toByteArray();
-    }
-    try (final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-         final ArrowStreamReader arrowStreamReader = new ArrowStreamReader(byteArrayInputStream, allocator);
-         final VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot()) {
-      for (int i = 0; arrowStreamReader.loadNextBatch(); i++) {
-        final String batchTsvContents = vectorSchemaRoot.contentToTSVString();
-        actualTsvContentsFromBatches.add(batchTsvContents);
-        LOGGER.info(format("Actual batch #%d:%n%s", i, batchTsvContents));
-      }
-    }
-    collector.checkThat(currentBatch.get(), is(BATCH_COUNT));
-    collector.checkThat(actualTsvContentsFromBatches, is(expectedTsvContentsForBatches));
+  public void testUnifiedBatchesShouldMatchOriginalRoot() {
+    collector.checkThat(unifiedBatches.contentToTSVString(), is(EXPECTED_FINAL_ROOT.contentToTSVString()));
   }
 
   @Test
-  public void readBytesFromStreamRootNullOutputStreamTest() {
-    final AtomicInteger iterationCount = new AtomicInteger();
-    collector.checkSucceeds(() -> {
-      readBytesFromStreamRoot(
-          flightStream,
-          null,
-          singletonList(root ->
-              LOGGER.info(
-                  format("Expected batch #%d:%n%s", iterationCount.getAndIncrement(), root.contentToTSVString()))));
-      return (Void) null;
-    });
-    collector.checkThat(currentBatch.get(), is(0));
+  public void testReadBytesFromUnifiedBatchesShouldMatchTheOnesFromUnifiedRoot() throws Exception {
+    final byte[] actualBytesFromBatches;
+    final byte[] expectedBytesFromRoot;
+    try (final ByteArrayOutputStream actualBytesFromUnifiedBatches = new ByteArrayOutputStream();
+         final ByteArrayOutputStream expectedBytesFromOriginalRoot = new ByteArrayOutputStream()) {
+      outputRootBinaryDataToStream(unifiedBatches, actualBytesFromUnifiedBatches);
+      actualBytesFromBatches = actualBytesFromUnifiedBatches.toByteArray();
+      outputRootBinaryDataToStream(EXPECTED_FINAL_ROOT, expectedBytesFromOriginalRoot);
+      expectedBytesFromRoot = expectedBytesFromOriginalRoot.toByteArray();
+    }
+    collector.checkThat(actualBytesFromBatches, is(expectedBytesFromRoot));
   }
 }
