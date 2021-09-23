@@ -16,14 +16,12 @@
 
 package com.adhoc.flight.client;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +41,11 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import com.adhoc.flight.utils.QueryUtils;
@@ -145,17 +147,17 @@ public class AdhocFlightClient implements AutoCloseable {
   /**
    * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server Endpoint.
    *
-   * @param client the FlightClient instance to connect to Dremio.
-   * @param user the Dremio username.
-   * @param pass the corresponding Dremio password
-   * @param factory the factory to create ClientIncomingAuthHeaderMiddleware.
+   * @param client           the FlightClient instance to connect to Dremio.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding Dremio password
+   * @param factory          the factory to create ClientIncomingAuthHeaderMiddleware.
    * @param clientProperties client properties to set during authentication.
    * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
    */
   public static CredentialCallOption authenticate(FlightClient client,
-          String user, String pass,
-          ClientIncomingAuthHeaderMiddleware.Factory factory,
-          HeaderCallOption clientProperties) {
+                                                  String user, String pass,
+                                                  ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                  HeaderCallOption clientProperties) {
     final List<CallOption> callOptions = new ArrayList<>();
 
     // Add CredentialCallOption for authentication.
@@ -232,10 +234,46 @@ public class AdhocFlightClient implements AutoCloseable {
 
     final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
 
-    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
-         final OutputStream rootBinaryData = fileToSaveTo == null ? null : new FileOutputStream(fileToSaveTo)) {
-      readBytesFromStreamRoot(
-          flightStream, rootBinaryData, printToConsole ? singletonList(QueryUtils::printResults) : emptyList());
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption)) {
+      final Field field = flightStream.getClass().getDeclaredField("allocator");
+      field.setAccessible(true);
+      try (final BufferAllocator allocator = ((BufferAllocator) field.get(flightStream));
+           final VectorSchemaRoot allBatchesInRoot = unifyBatchesIntoSingleRoot(flightStream, allocator)) {
+        if (printToConsole) {
+          QueryUtils.printResults(allBatchesInRoot);
+        }
+        if (fileToSaveTo != null) {
+          try (final OutputStream outputStream = new FileOutputStream(fileToSaveTo)) {
+            outputRootBinaryDataToStream(allBatchesInRoot, outputStream);
+          }
+        }
+      }
+    }
+  }
+
+  protected static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream,
+                                                               final BufferAllocator allocator)
+      throws Exception {
+    final VectorSchemaRoot newRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
+    while (flightStream.next()) {
+      try (final VectorSchemaRoot oldRoot = flightStream.getRoot()) {
+        new VectorLoader(newRoot).load(new VectorUnloader(oldRoot).getRecordBatch());
+      } catch (final Exception e) {
+        AutoCloseables.close(newRoot);
+        throw e;
+      }
+    }
+    return newRoot;
+  }
+
+  protected static void outputRootBinaryDataToStream(final VectorSchemaRoot vectorSchemaRoot,
+                                                     final OutputStream outputStream)
+      throws IOException {
+    try (final ArrowStreamWriter arrowStreamWriter =
+             new ArrowStreamWriter(vectorSchemaRoot, null, outputStream)) {
+      arrowStreamWriter.start();
+      arrowStreamWriter.writeBatch();
+      arrowStreamWriter.end();
     }
   }
 
