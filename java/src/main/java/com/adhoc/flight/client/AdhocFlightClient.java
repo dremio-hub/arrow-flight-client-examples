@@ -16,12 +16,13 @@
 
 package com.adhoc.flight.client;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +42,6 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -49,41 +49,45 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import com.adhoc.flight.utils.QueryUtils;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
  * CredentialCallOption with a bearer token for subsequent FlightRPC requests.
  */
-public class AdhocFlightClient implements AutoCloseable {
+public final class AdhocFlightClient implements AutoCloseable {
   private final FlightClient client;
+  private final BufferAllocator allocator;
   private final CredentialCallOption bearerToken;
 
-  public AdhocFlightClient(FlightClient client, CredentialCallOption bearerToken) {
-    this.client = client;
-    this.bearerToken = bearerToken;
+  AdhocFlightClient(final FlightClient client, final BufferAllocator allocator,
+                    final CredentialCallOption bearerToken) {
+    this.client = requireNonNull(client);
+    this.allocator = requireNonNull(allocator);
+    this.bearerToken = requireNonNull(bearerToken);
   }
 
   /**
    * Creates a FlightClient connected to the Dremio server with encrypted TLS connection.
    *
-   * @param allocator the BufferAllocator.
-   * @param host the Dremio host.
-   * @param port the Dremio port where Flight Server Endpoint is running on.
-   * @param user the Dremio username.
-   * @param pass the corresponding password.
-   * @param keyStorePath path to the JKS.
-   * @param keyStorePass the password to the JKS.
+   * @param allocator        the BufferAllocator.
+   * @param host             the Dremio host.
+   * @param port             the Dremio port where Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding password.
+   * @param keyStorePath     path to the JKS.
+   * @param keyStorePass     the password to the JKS.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *      with bearer token for subsequent FlightRPC requests.
+   * with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
    */
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
-          String host, int port,
-          String user, String pass,
-          String keyStorePath,
-          String keyStorePass,
-          boolean verifyServer, HeaderCallOption clientProperties) throws Exception {
+                                                     String host, int port,
+                                                     String user, String pass,
+                                                     String keyStorePath,
+                                                     String keyStorePass,
+                                                     boolean verifyServer, HeaderCallOption clientProperties) throws Exception {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
@@ -91,7 +95,7 @@ public class AdhocFlightClient implements AutoCloseable {
         new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-    final FlightClient .Builder clientBuilder = FlightClient.builder();
+    final FlightClient.Builder clientBuilder = FlightClient.builder();
     if (verifyServer) {
       clientBuilder
           .allocator(allocator)
@@ -106,29 +110,29 @@ public class AdhocFlightClient implements AutoCloseable {
           .intercept(factory)
           .useTls()
           .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
-            keyStorePath, keyStorePass));
+              keyStorePath, keyStorePass));
     }
 
     final FlightClient client = clientBuilder.build();
-    return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
+    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
   }
 
   /**
    * Creates a FlightClient connected to the Dremio server with an unencrypted connection.
    *
-   * @param allocator the BufferAllocator.
-   * @param host the Dremio host.
-   * @param port the Dremio port where Flight Server Endpoint is running on.
-   * @param user the Dremio username.
-   * @param pass the corresponding password.
+   * @param allocator        the BufferAllocator.
+   * @param host             the Dremio host.
+   * @param port             the Dremio port where Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding password.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *      with bearer token for subsequent FlightRPC requests.
+   * with bearer token for subsequent FlightRPC requests.
    */
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
-          String host, int port,
-          String user, String pass,
-          HeaderCallOption clientProperties) {
+                                                 String host, int port,
+                                                 String user, String pass,
+                                                 HeaderCallOption clientProperties) {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
@@ -141,7 +145,7 @@ public class AdhocFlightClient implements AutoCloseable {
         .location(Location.forGrpcInsecure(host, port))
         .intercept(factory)
         .build();
-    return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
+    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
   }
 
   /**
@@ -235,10 +239,7 @@ public class AdhocFlightClient implements AutoCloseable {
     final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
 
     try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption)) {
-      final Field field = flightStream.getClass().getDeclaredField("allocator");
-      field.setAccessible(true);
-      try (final BufferAllocator allocator = ((BufferAllocator) field.get(flightStream));
-           final VectorSchemaRoot allBatchesInRoot = unifyBatchesIntoSingleRoot(flightStream, allocator)) {
+      try (final VectorSchemaRoot allBatchesInRoot = unifyBatchesIntoSingleRoot(flightStream)) {
         if (printToConsole) {
           QueryUtils.printResults(allBatchesInRoot);
         }
@@ -251,13 +252,19 @@ public class AdhocFlightClient implements AutoCloseable {
     }
   }
 
-  protected static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream,
-                                                               final BufferAllocator allocator)
-      throws Exception {
+  /**
+   * Unifies all batches from the provided {@code flightStream} onto a new {@link VectorSchemaRoot}.
+   *
+   * @param flightStream the {@link FlightStream} instance from which to fetch the batches to unify.
+   * @return a new root.
+   * @throws Exception on error.
+   */
+  VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) throws Exception {
     final VectorSchemaRoot newRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
     while (flightStream.next()) {
-      try (final VectorSchemaRoot oldRoot = flightStream.getRoot()) {
-        new VectorLoader(newRoot).load(new VectorUnloader(oldRoot).getRecordBatch());
+      try (final VectorSchemaRoot oldRoot = flightStream.getRoot();
+           final ArrowRecordBatch arrowRecordBatch = new VectorUnloader(oldRoot).getRecordBatch()) {
+        new VectorLoader(newRoot).load(arrowRecordBatch);
       } catch (final Exception e) {
         AutoCloseables.close(newRoot);
         throw e;
@@ -266,8 +273,15 @@ public class AdhocFlightClient implements AutoCloseable {
     return newRoot;
   }
 
-  protected static void outputRootBinaryDataToStream(final VectorSchemaRoot vectorSchemaRoot,
-                                                     final OutputStream outputStream)
+  /**
+   * Outputs the binary data from the provided {@code vectorSchemaRoot} onto the provided {@code outputStream}.
+   *
+   * @param vectorSchemaRoot the {@link VectorSchemaRoot} from which to fetch the binary data.
+   * @param outputStream     the {@link OutputStream} to save to.
+   * @throws IOException on error.
+   */
+  static void outputRootBinaryDataToStream(final VectorSchemaRoot vectorSchemaRoot,
+                                           final OutputStream outputStream)
       throws IOException {
     try (final ArrowStreamWriter arrowStreamWriter =
              new ArrowStreamWriter(vectorSchemaRoot, null, outputStream)) {
@@ -286,9 +300,9 @@ public class AdhocFlightClient implements AutoCloseable {
    * @param batchConsumer actions to take on each iteration/batch update from {@link FlightStream#next}.
    * @throws IOException on error.
    */
-  protected static void readBytesFromStreamRoot(final FlightStream flightStream,
-                                                final @Nullable OutputStream outputStream,
-                                                final List<Consumer<VectorSchemaRoot>> batchConsumer)
+  static void readBytesFromStreamRoot(final FlightStream flightStream,
+                                      final @Nullable OutputStream outputStream,
+                                      final List<Consumer<VectorSchemaRoot>> batchConsumer)
       throws IOException {
     try (final VectorSchemaRoot dataRoot = flightStream.getRoot()) {
       if (outputStream == null) {
@@ -368,11 +382,7 @@ public class AdhocFlightClient implements AutoCloseable {
   }
 
   @Override
-  public void close() {
-    try {
-      client.close();
-    } catch (InterruptedException ex) {
-      QueryUtils.printExceptionOnClosed(ex);
-    }
+  public void close() throws Exception {
+    AutoCloseables.close(client, allocator);
   }
 }
