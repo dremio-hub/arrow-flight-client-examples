@@ -16,10 +16,19 @@
 
 package com.adhoc.flight.client;
 
+import static java.util.Objects.requireNonNull;
+
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+
+import javax.annotation.Nullable;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -33,7 +42,13 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.VisibleForTesting;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
 
@@ -41,36 +56,40 @@ import com.adhoc.flight.utils.QueryUtils;
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
  * CredentialCallOption with a bearer token for subsequent FlightRPC requests.
  */
-public class AdhocFlightClient implements AutoCloseable {
+public final class AdhocFlightClient implements AutoCloseable {
   private final FlightClient client;
+  private final BufferAllocator allocator;
   private final CredentialCallOption bearerToken;
 
-  public AdhocFlightClient(FlightClient client, CredentialCallOption bearerToken) {
-    this.client = client;
-    this.bearerToken = bearerToken;
+  AdhocFlightClient(final FlightClient client, final BufferAllocator allocator,
+                    final CredentialCallOption bearerToken) {
+    this.client = requireNonNull(client);
+    this.allocator = requireNonNull(allocator);
+    this.bearerToken = requireNonNull(bearerToken);
   }
 
   /**
    * Creates a FlightClient connected to the Dremio server with encrypted TLS connection.
    *
-   * @param allocator the BufferAllocator.
-   * @param host the Dremio host.
-   * @param port the Dremio port where Flight Server Endpoint is running on.
-   * @param user the Dremio username.
-   * @param pass the corresponding password.
-   * @param keyStorePath path to the JKS.
-   * @param keyStorePass the password to the JKS.
+   * @param allocator        the BufferAllocator.
+   * @param host             the Dremio host.
+   * @param port             the Dremio port where Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding password.
+   * @param keyStorePath     path to the JKS.
+   * @param keyStorePass     the password to the JKS.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *      with bearer token for subsequent FlightRPC requests.
+   *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
    */
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
-          String host, int port,
-          String user, String pass,
-          String keyStorePath,
-          String keyStorePass,
-          boolean verifyServer, HeaderCallOption clientProperties) throws Exception {
+                                                     String host, int port,
+                                                     String user, String pass,
+                                                     String keyStorePath,
+                                                     String keyStorePass,
+                                                     boolean verifyServer, HeaderCallOption clientProperties)
+      throws Exception {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
@@ -78,7 +97,7 @@ public class AdhocFlightClient implements AutoCloseable {
         new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-    final FlightClient .Builder clientBuilder = FlightClient.builder();
+    final FlightClient.Builder clientBuilder = FlightClient.builder();
     if (verifyServer) {
       clientBuilder
           .allocator(allocator)
@@ -93,29 +112,29 @@ public class AdhocFlightClient implements AutoCloseable {
           .intercept(factory)
           .useTls()
           .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
-            keyStorePath, keyStorePass));
+              keyStorePath, keyStorePass));
     }
 
     final FlightClient client = clientBuilder.build();
-    return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
+    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
   }
 
   /**
    * Creates a FlightClient connected to the Dremio server with an unencrypted connection.
    *
-   * @param allocator the BufferAllocator.
-   * @param host the Dremio host.
-   * @param port the Dremio port where Flight Server Endpoint is running on.
-   * @param user the Dremio username.
-   * @param pass the corresponding password.
+   * @param allocator        the BufferAllocator.
+   * @param host             the Dremio host.
+   * @param port             the Dremio port where Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding password.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   *      with bearer token for subsequent FlightRPC requests.
+   *         with bearer token for subsequent FlightRPC requests.
    */
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
-          String host, int port,
-          String user, String pass,
-          HeaderCallOption clientProperties) {
+                                                 String host, int port,
+                                                 String user, String pass,
+                                                 HeaderCallOption clientProperties) {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
@@ -128,23 +147,23 @@ public class AdhocFlightClient implements AutoCloseable {
         .location(Location.forGrpcInsecure(host, port))
         .intercept(factory)
         .build();
-    return new AdhocFlightClient(client, authenticate(client, user, pass, factory, clientProperties));
+    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
   }
 
   /**
    * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server Endpoint.
    *
-   * @param client the FlightClient instance to connect to Dremio.
-   * @param user the Dremio username.
-   * @param pass the corresponding Dremio password
-   * @param factory the factory to create ClientIncomingAuthHeaderMiddleware.
+   * @param client           the FlightClient instance to connect to Dremio.
+   * @param user             the Dremio username.
+   * @param pass             the corresponding Dremio password
+   * @param factory          the factory to create ClientIncomingAuthHeaderMiddleware.
    * @param clientProperties client properties to set during authentication.
    * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
    */
   public static CredentialCallOption authenticate(FlightClient client,
-          String user, String pass,
-          ClientIncomingAuthHeaderMiddleware.Factory factory,
-          HeaderCallOption clientProperties) {
+                                                  String user, String pass,
+                                                  ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                  HeaderCallOption clientProperties) {
     final List<CallOption> callOptions = new ArrayList<>();
 
     // Add CredentialCallOption for authentication.
@@ -207,130 +226,58 @@ public class AdhocFlightClient implements AutoCloseable {
    * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
    * provided SQL query.
    *
-   * @param query the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *        should be saved.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query,
-          HeaderCallOption headerCallOption,
-          File fileToSaveTo, boolean printToConsole) throws Exception {
-
-    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
-
-    try (FlightStream stream = getStream(flightInfo, bearerToken, headerCallOption)) {
-      if (!stream.next()) {
-        return;
-      }
-
-      try (VectorSchemaRoot root = stream.getRoot()) {
-        if (printToConsole) {
-          QueryUtils.printResults(root);
-        }
-        if (fileToSaveTo != null) {
-          QueryUtils.writeToBinaryFile(root, fileToSaveTo);
-        }
-      }
-    }
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
    * @param query            the SQL query to execute.
    * @param headerCallOption client properties to execute provided SQL query with.
    * @param fileToSaveTo     the file to which the binary data of the resulting {@link VectorSchemaRoot}
    *                         should be saved.
    * @throws Exception if an error occurs during query execution.
    */
-  public void runQuery(String query, HeaderCallOption headerCallOption, File fileToSaveTo) throws Exception {
-    runQuery(query, headerCallOption, fileToSaveTo, false);
+  public void runQuery(final String query,
+                       final @Nullable HeaderCallOption headerCallOption,
+                       final @Nullable File fileToSaveTo,
+                       final boolean printToConsole) throws Exception {
+
+    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
+         final OutputStream outputStream =
+             fileToSaveTo == null ? null : new BufferedOutputStream(new FileOutputStream(fileToSaveTo))) {
+      writeToOutputStream(
+          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : root -> {
+            // NO-OP.
+          });
+    }
   }
 
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query            the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @param printToConsole   whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, HeaderCallOption headerCallOption, boolean printToConsole) throws Exception {
-    runQuery(query, headerCallOption, null, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query          the SQL query to execute.
-   * @param fileToSaveTo   the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *                       should be saved.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, File fileToSaveTo, boolean printToConsole) throws Exception {
-    runQuery(query, null, fileToSaveTo, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query        the SQL query to execute.
-   * @param fileToSaveTo the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *                     should be saved.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, File fileToSaveTo) throws Exception {
-    runQuery(query, null, fileToSaveTo, false);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query          the SQL query to execute.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, boolean printToConsole) throws Exception {
-    runQuery(query, null, null, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query            the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
-    runQuery(query, headerCallOption, false);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query the SQL query to execute.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query) throws Exception {
-    runQuery(query, false);
+  @VisibleForTesting
+  static void writeToOutputStream(final FlightStream flightStream, final BufferAllocator allocator,
+                                  final @Nullable OutputStream outputStream,
+                                  final Consumer<VectorSchemaRoot> batchConsumer)
+      throws IOException {
+    try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
+         final ArrowStreamWriter arrowStreamWriter =
+             outputStream == null ? null : new ArrowStreamWriter(vectorSchemaRoot, null, outputStream)) {
+      final VectorLoader vectorLoader = new VectorLoader(vectorSchemaRoot);
+      if (arrowStreamWriter != null) {
+        arrowStreamWriter.start();
+      }
+      while (flightStream.next()) {
+        try (final VectorSchemaRoot currentRoot = flightStream.getRoot();
+             final ArrowRecordBatch currentRecordBatch = new VectorUnloader(currentRoot).getRecordBatch()) {
+          batchConsumer.accept(currentRoot);
+          vectorLoader.load(currentRecordBatch);
+          if (arrowStreamWriter != null) {
+            arrowStreamWriter.writeBatch();
+          }
+        }
+      }
+      if (arrowStreamWriter != null) {
+        arrowStreamWriter.end();
+      }
+    }
   }
 
   @Override
-  public void close() {
-    try {
-      client.close();
-    } catch (InterruptedException ex) {
-      QueryUtils.printExceptionOnClosed(ex);
-    }
+  public void close() throws Exception {
+    AutoCloseables.close(client, allocator);
   }
 }

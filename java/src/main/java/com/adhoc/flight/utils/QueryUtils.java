@@ -17,12 +17,7 @@
 
 package com.adhoc.flight.utils;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 /**
  * Utilitary class for helping queries out with cross-cutting concerns,
@@ -32,38 +27,6 @@ public final class QueryUtils {
 
   private QueryUtils() {
     // Prevent instantiation.
-  }
-
-  /**
-   * Writes the binary representation of the provided {@link VectorSchemaRoot}
-   * to the provided {@link File}.
-   *
-   * @param vectorSchemaRoot the {@code VectorSchemaRoot} to be converted.
-   * @param file             the file to write to.
-   * @throws IOException If an error occurs when trying to write to the file.
-   */
-  public static void writeToBinaryFile(VectorSchemaRoot vectorSchemaRoot,
-                                       File file) throws IOException {
-
-    try (ArrowStreamWriter arrowStreamWriter = new ArrowStreamWriter(
-        vectorSchemaRoot, null, new FileOutputStream(file))) {
-
-      arrowStreamWriter.start();
-      arrowStreamWriter.writeBatch();
-      arrowStreamWriter.end();
-    }
-  }
-
-  /**
-   * Writes the binary representation of the provided {@link VectorSchemaRoot}
-   * to the provided {@link File}.
-   *
-   * @param vectorSchemaRoot the {@code VectorSchemaRoot} to be converted.
-   * @param filePath         the path to the {@link File} to write to.
-   * @throws IOException If an error occurs when trying to write to the file.
-   */
-  public static void writeToBinaryFile(VectorSchemaRoot vectorSchemaRoot, String filePath) throws IOException {
-    writeToBinaryFile(vectorSchemaRoot, new File(filePath));
   }
 
   /**
