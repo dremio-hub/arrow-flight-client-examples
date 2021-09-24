@@ -142,7 +142,7 @@ public class QueryRunner {
        * Create demo table in $scratch
        */
       System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
-      client.runQuery(CREATE_DEMO_TABLE);
+      client.runQuery(CREATE_DEMO_TABLE, null, null, true);
       System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
 
       /**
@@ -157,14 +157,14 @@ public class QueryRunner {
           "schema", DEMO_TABLE_SCHEMA);
       final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
       // Run query "select * from dremio_flight_demo_table" without schema path.
-      client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, true);
+      client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, null, true);
       System.out.println();
 
       /**
        * Drop Demo Table
        */
       System.out.println("[INFO] [STEP 5]: Drop demo table.");
-      client.runQuery(DROP_DEMO_TABLE, schemaCallOption);
+      client.runQuery(DROP_DEMO_TABLE, schemaCallOption, null, true);
       System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
@@ -204,9 +204,9 @@ public class QueryRunner {
       QueryUtils.printRunningQuery(ARGUMENTS.query);
 
       if (pathToSaveQueryResultsTo != null) {
-        client.runQuery(ARGUMENTS.query, new File(pathToSaveQueryResultsTo), true);
+        client.runQuery(ARGUMENTS.query, null, new File(pathToSaveQueryResultsTo), true);
       } else {
-        client.runQuery(ARGUMENTS.query, true);
+        client.runQuery(ARGUMENTS.query, null, null, true);
       }
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
