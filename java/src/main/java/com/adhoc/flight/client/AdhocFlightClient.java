@@ -18,15 +18,15 @@ package com.adhoc.flight.client;
 
 import static java.util.Objects.requireNonNull;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
+import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
@@ -44,11 +44,13 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
-import org.apache.arrow.vector.util.VectorSchemaRootAppender;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -78,7 +80,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param keyStorePass     the password to the JKS.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   * with bearer token for subsequent FlightRPC requests.
+   *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
    */
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
@@ -86,7 +88,8 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String user, String pass,
                                                      String keyStorePath,
                                                      String keyStorePass,
-                                                     boolean verifyServer, HeaderCallOption clientProperties) throws Exception {
+                                                     boolean verifyServer, HeaderCallOption clientProperties)
+      throws Exception {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
@@ -126,7 +129,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param pass             the corresponding password.
    * @param clientProperties the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
-   * with bearer token for subsequent FlightRPC requests.
+   *         with bearer token for subsequent FlightRPC requests.
    */
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
                                                  String host, int port,
@@ -227,129 +230,50 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param headerCallOption client properties to execute provided SQL query with.
    * @param fileToSaveTo     the file to which the binary data of the resulting {@link VectorSchemaRoot}
    *                         should be saved.
-   * @param printToConsole   whether the query results should be printed to the console.
    * @throws Exception if an error occurs during query execution.
    */
   public void runQuery(final String query,
-                       final HeaderCallOption headerCallOption,
+                       final @Nullable HeaderCallOption headerCallOption,
                        final @Nullable File fileToSaveTo,
                        final boolean printToConsole) throws Exception {
 
     final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
+         final OutputStream outputStream =
+             fileToSaveTo == null ? null : new BufferedOutputStream(new FileOutputStream(fileToSaveTo))) {
+      writeToOutputStream(
+          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : root -> {
+            // NO-OP.
+          });
+    }
+  }
 
-    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption)) {
-      try (final VectorSchemaRoot allBatchesInRoot = unifyBatchesIntoSingleRoot(flightStream)) {
-        if (printToConsole) {
-          QueryUtils.printResults(allBatchesInRoot);
-        }
-        if (fileToSaveTo != null) {
-          try (final OutputStream outputStream = new FileOutputStream(fileToSaveTo)) {
-            outputRootBinaryDataToStream(allBatchesInRoot, outputStream);
+  @VisibleForTesting
+  static void writeToOutputStream(final FlightStream flightStream, final BufferAllocator allocator,
+                                  final @Nullable OutputStream outputStream,
+                                  final Consumer<VectorSchemaRoot> batchConsumer)
+      throws IOException {
+    try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(flightStream.getSchema(), allocator);
+         final ArrowStreamWriter arrowStreamWriter =
+             outputStream == null ? null : new ArrowStreamWriter(vectorSchemaRoot, null, outputStream)) {
+      final VectorLoader vectorLoader = new VectorLoader(vectorSchemaRoot);
+      if (arrowStreamWriter != null) {
+        arrowStreamWriter.start();
+      }
+      while (flightStream.next()) {
+        try (final VectorSchemaRoot currentRoot = flightStream.getRoot();
+             final ArrowRecordBatch currentRecordBatch = new VectorUnloader(currentRoot).getRecordBatch()) {
+          batchConsumer.accept(currentRoot);
+          vectorLoader.load(currentRecordBatch);
+          if (arrowStreamWriter != null) {
+            arrowStreamWriter.writeBatch();
           }
         }
       }
-    }
-  }
-
-  /**
-   * Unifies all batches from the provided {@code flightStream} onto a new {@link VectorSchemaRoot}.
-   *
-   * @param flightStream the {@link FlightStream} instance from which to fetch the batches to unify.
-   * @return a new root.
-   */
-  static VectorSchemaRoot unifyBatchesIntoSingleRoot(final FlightStream flightStream) {
-    final Queue<VectorSchemaRoot> roots = new LinkedList<>();
-    try {
-      while (flightStream.next()) {
-        roots.add(flightStream.getRoot());
+      if (arrowStreamWriter != null) {
+        arrowStreamWriter.end();
       }
-      final VectorSchemaRoot baseRoot = roots.remove();
-      VectorSchemaRootAppender.append(baseRoot, roots.toArray(new VectorSchemaRoot[0]));
-      return baseRoot;
-    } finally {
-      roots.forEach(AutoCloseables::closeNoChecked);
     }
-  }
-
-  /**
-   * Outputs the binary data from the provided {@code vectorSchemaRoot} onto the provided {@code outputStream}.
-   *
-   * @param vectorSchemaRoot the {@link VectorSchemaRoot} from which to fetch the binary data.
-   * @param outputStream     the {@link OutputStream} to save to.
-   * @throws IOException on error.
-   */
-  @VisibleForTesting
-  static void outputRootBinaryDataToStream(final VectorSchemaRoot vectorSchemaRoot,
-                                           final OutputStream outputStream)
-      throws IOException {
-    try (final ArrowStreamWriter arrowStreamWriter =
-             new ArrowStreamWriter(vectorSchemaRoot, null, outputStream)) {
-      arrowStreamWriter.start();
-      arrowStreamWriter.writeBatch();
-      arrowStreamWriter.end();
-    }
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query            the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @param printToConsole   whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, HeaderCallOption headerCallOption, boolean printToConsole) throws Exception {
-    runQuery(query, headerCallOption, null, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query          the SQL query to execute.
-   * @param fileToSaveTo   the file to which the binary data of the resulting {@link VectorSchemaRoot}
-   *                       should be saved.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, File fileToSaveTo, boolean printToConsole) throws Exception {
-    runQuery(query, null, fileToSaveTo, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query          the SQL query to execute.
-   * @param printToConsole whether or not the query results should be printed to the console.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, boolean printToConsole) throws Exception {
-    runQuery(query, null, null, printToConsole);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query            the SQL query to execute.
-   * @param headerCallOption client properties to execute provided SQL query with.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query, HeaderCallOption headerCallOption) throws Exception {
-    runQuery(query, headerCallOption, false);
-  }
-
-  /**
-   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
-   * provided SQL query.
-   *
-   * @param query the SQL query to execute.
-   * @throws Exception if an error occurs during query execution.
-   */
-  public void runQuery(String query) throws Exception {
-    runQuery(query, false);
   }
 
   @Override
