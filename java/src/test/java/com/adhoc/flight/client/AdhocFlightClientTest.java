@@ -17,7 +17,6 @@
 package com.adhoc.flight.client;
 
 import static com.adhoc.flight.client.AdhocFlightClient.writeToOutputStream;
-import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.util.AutoCloseables.close;
@@ -116,6 +115,7 @@ public final class AdhocFlightClientTest {
     checkState(responseRoots.isEmpty(), "Response roots are not empty. Test results are unreliable.");
     when(flightStream.getSchema()).thenReturn(SCHEMA);
     when(flightStream.getRoot()).thenAnswer(flightStreamMock -> responseRoots.get(currentBatch.get()));
+    when(flightStream.hasRoot()).thenReturn(true);
     when(flightStream.next()).thenAnswer(flightStreamMock -> {
       final int currentBatch = this.currentBatch.incrementAndGet();
       if (currentBatch >= EXPECTED_BATCH_COUNT) {
@@ -161,13 +161,5 @@ public final class AdhocFlightClientTest {
 
     collector.checkThat(actualBatches, is(originalBatches));
     collector.checkThat(responseRoots.size(), is(allOf(equalTo(actualBatches.size()), equalTo(EXPECTED_BATCH_COUNT))));
-    collector.checkThrows(
-        IndexOutOfBoundsException.class /* Because it should have already been consumed at this point */,
-        () ->
-            responseRoots.stream()
-                .map(VectorSchemaRoot::contentToTSVString)
-                .forEach(
-                    content ->
-                        LOGGER.warning(format("Query result is truncated. Missing content:%n<%s>", content))));
   }
 }

@@ -242,9 +242,7 @@ public final class AdhocFlightClient implements AutoCloseable {
          final OutputStream outputStream =
              fileToSaveTo == null ? null : new BufferedOutputStream(new FileOutputStream(fileToSaveTo))) {
       writeToOutputStream(
-          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : root -> {
-            // NO-OP.
-          });
+          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : null);
     }
   }
 
@@ -261,9 +259,13 @@ public final class AdhocFlightClient implements AutoCloseable {
         arrowStreamWriter.start();
       }
       while (flightStream.next()) {
-        try (final VectorSchemaRoot currentRoot = flightStream.getRoot();
-             final ArrowRecordBatch currentRecordBatch = new VectorUnloader(currentRoot).getRecordBatch()) {
-          batchConsumer.accept(currentRoot);
+        if (!flightStream.hasRoot()) {
+          break;
+        }
+        try (final ArrowRecordBatch currentRecordBatch = new VectorUnloader(flightStream.getRoot()).getRecordBatch()) {
+          if (batchConsumer != null) {
+            batchConsumer.accept(flightStream.getRoot());
+          }
           vectorLoader.load(currentRecordBatch);
           if (arrowStreamWriter != null) {
             arrowStreamWriter.writeBatch();
