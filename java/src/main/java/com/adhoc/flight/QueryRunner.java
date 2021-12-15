@@ -33,6 +33,7 @@ import com.adhoc.flight.utils.QueryUtils;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -69,6 +70,14 @@ public class QueryRunner {
         description = "Dremio password")
     public String pass = "dremio123";
 
+    @Parameter(names = {"-pat", "--personalAccessToken"},
+        description = "Personal Access Token")
+    public String personalAccessToken;
+
+    @Parameter(names = {"-authToken", "--authToken"},
+        description = "OAuth2 Token")
+    public String authToken;
+
     @Parameter(names = {"-query", "--sqlQuery"},
         description = "SQL query to test")
     public String query = null;
@@ -97,6 +106,10 @@ public class QueryRunner {
         description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
     public boolean runDemo = false;
 
+    @Parameter(names = {"-engine", "--engineId"},
+        description = "The specific engineId")
+    public String engineId;
+
     @Parameter(names = {"-h", "--help"},
         description = "show usage", help = true)
     public boolean help = false;
@@ -111,7 +124,7 @@ public class QueryRunner {
    *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runDemo() throws Exception {
@@ -186,12 +199,19 @@ public class QueryRunner {
    *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
-  public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
+  public static void runAdhoc(String pathToSaveQueryResultsTo, String engineId) throws Exception {
 
-    try (final AdhocFlightClient client = createFlightClient(null)) {
+    HeaderCallOption clientProperties = null;
+
+    if (!Strings.isNullOrEmpty(engineId)) {
+      final Map<String, String> properties = ImmutableMap.of("engine", engineId);
+      clientProperties = createClientProperties(properties);
+    }
+
+    try (final AdhocFlightClient client = createFlightClient(clientProperties)) {
 
       /**
        * Authentication
@@ -226,12 +246,12 @@ public class QueryRunner {
    *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runAdhoc() throws Exception {
 
-    runAdhoc(null);
+    runAdhoc(null, null);
   }
 
   public static void main(String[] args) throws Exception {
@@ -243,7 +263,7 @@ public class QueryRunner {
       } else if (ARGUMENTS.runDemo) {
         runDemo();
       } else {
-        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo, ARGUMENTS.engineId);
       }
     } finally {
       BUFFER_ALLOCATOR.close();
@@ -259,13 +279,17 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+    if (!Strings.isNullOrEmpty(ARGUMENTS.personalAccessToken) && !Strings.isNullOrEmpty(ARGUMENTS.authToken)) {
+      throw new IllegalArgumentException("Cannot specify both Personal Access Token and OAuth Token.");
+    }
+
     if (ARGUMENTS.enableTls) {
       Preconditions.checkNotNull(ARGUMENTS.keystorePath,
           "When TLS is enabled, path to the KeyStore is required.");
@@ -274,12 +298,16 @@ public class QueryRunner {
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
+          ARGUMENTS.personalAccessToken,
+          ARGUMENTS.authToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
           ARGUMENTS.disableServerVerification, clientProperties);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
+          ARGUMENTS.personalAccessToken,
+          ARGUMENTS.authToken,
           clientProperties);
     }
   }
