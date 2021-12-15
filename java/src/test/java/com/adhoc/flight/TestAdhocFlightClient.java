@@ -78,28 +78,13 @@ public class TestAdhocFlightClient {
   /**
    * Creates a new FlightClient with no client properties set during authentication.
    *
-   * @param host the Drmeio host.
+   * @param host the Dremio host.
    * @param port the port Dremio Flight Server Endpoint is running on.
    * @param user the Dremio username.
    * @param pass the password corresponding to the Dremio username provided.
    */
   private void createBasicFlightClient(String host, int port, String user, String pass) {
-    createBasicFlightClient(host, port, user, pass, null);
-  }
-
-  /**
-   * Creates a new FlightClient with client properties set during authentication.
-   *
-   * @param host             the Drmeio host.
-   * @param port             the port Dremio Flight Server Endpoint is running on.
-   * @param user             the Dremio username.
-   * @param pass             the password corresponding to the Dremio username provided.
-   * @param clientProperties Dremio client properties to set during authentication.
-   */
-  private void createBasicFlightClient(String host, int port,
-                                       String user, String pass,
-                                       HeaderCallOption clientProperties) {
-    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, clientProperties);
+    createBasicFlightClient(host, port, user, pass, null, null, null);
   }
 
   /**
@@ -111,11 +96,30 @@ public class TestAdhocFlightClient {
    * @param pass             the password corresponding to the Dremio username provided.
    * @param clientProperties Dremio client properties to set during authentication.
    */
-  private void creatEncryptedFlightClientWithDisableServerVerification(String host, int port,
+  private void createBasicFlightClient(String host, int port,
+                                       String user, String pass,
+                                       String personalAccessToken,
+                                       String authToken,
+                                       HeaderCallOption clientProperties) {
+    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, null, null, clientProperties);
+  }
+
+  /**
+   * Creates a new FlightClient with client properties set during authentication.
+   *
+   * @param host             the Dremio host.
+   * @param port             the port Dremio Flight Server Endpoint is running on.
+   * @param user             the Dremio username.
+   * @param pass             the password corresponding to the Dremio username provided.
+   * @param clientProperties Dremio client properties to set during authentication.
+   */
+  private void createEncryptedFlightClientWithDisableServerVerification(String host, int port,
                                                                        String user, String pass,
+                                                                       String personalAccessToken,
+                                                                       String authToken,
                                                                        HeaderCallOption clientProperties)
       throws Exception {
-    client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null,
+    client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null, null,
       null, DISABLE_SERVER_VERIFICATION, clientProperties);
   }
 
@@ -133,7 +137,7 @@ public class TestAdhocFlightClient {
   //TODO Enable encrypted flight server on actions.
   public void testSimpleQueryWithDisableServerVerification() throws Exception {
     // Create FlightClient connecting to Dremio.
-    creatEncryptedFlightClientWithDisableServerVerification(HOST, PORT, USERNAME, PASSWORD, null);
+    createEncryptedFlightClientWithDisableServerVerification(HOST, PORT, USERNAME, PASSWORD, null, null, null);
 
     // Select
     client.runQuery(SIMPLE_QUERY, null, null, false);
@@ -149,7 +153,7 @@ public class TestAdhocFlightClient {
     final HeaderCallOption clientProperties = new HeaderCallOption(callHeaders);
 
     // Create FlightClient connecting to Dremio.
-    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, clientProperties);
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null, null, clientProperties);
 
     // Create table
     client.runQuery(CREATE_TABLE_NO_SCHEMA, null, null, false);
@@ -163,7 +167,7 @@ public class TestAdhocFlightClient {
 
   @Test
   public void testSimpleQueryWithDefaultSchemaPath() throws Exception {
-    // Create FlightClient connecting to Drmeio.
+    // Create FlightClient connecting to Dremio.
     createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
 
     // Create table

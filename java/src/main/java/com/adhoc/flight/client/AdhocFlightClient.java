@@ -26,11 +26,14 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -38,8 +41,10 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.client.ClientCookieMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -51,6 +56,8 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -86,6 +93,8 @@ public final class AdhocFlightClient implements AutoCloseable {
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
                                                      String host, int port,
                                                      String user, String pass,
+                                                     String personalAccessToken,
+                                                     String authToken,
                                                      String keyStorePath,
                                                      String keyStorePass,
                                                      boolean verifyServer, HeaderCallOption clientProperties)
@@ -93,30 +102,43 @@ public final class AdhocFlightClient implements AutoCloseable {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
-    final ClientIncomingAuthHeaderMiddleware.Factory factory =
+    final ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory =
         new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+    final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
     final FlightClient.Builder clientBuilder = FlightClient.builder();
+    clientBuilder
+        .allocator(allocator)
+        .location(Location.forGrpcTls(host, port))
+        .intercept(authHeaderFactory)
+        .intercept(cookieFactory)
+        .useTls();
+
     if (verifyServer) {
-      clientBuilder
-          .allocator(allocator)
-          .location(Location.forGrpcTls(host, port))
-          .intercept(factory)
-          .useTls()
-          .verifyServer(false);
+      clientBuilder.verifyServer(false);
     } else {
-      clientBuilder
-          .allocator(allocator)
-          .location(Location.forGrpcTls(host, port))
-          .intercept(factory)
-          .useTls()
-          .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(
-              keyStorePath, keyStorePass));
+      clientBuilder.trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
     }
 
     final FlightClient client = clientBuilder.build();
-    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
+
+    final CredentialCallOption credentials;
+    if (!Strings.isNullOrEmpty(personalAccessToken)) {
+      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+    } else if (!Strings.isNullOrEmpty(authToken)) {
+      // TODO: compilation error if it is empty for now
+      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+    } else {
+      credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
+    }
+
+    return new AdhocFlightClient(
+        client,
+        allocator,
+        credentials
+    );
   }
 
   /**
@@ -134,20 +156,39 @@ public final class AdhocFlightClient implements AutoCloseable {
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
                                                  String host, int port,
                                                  String user, String pass,
+                                                 String personalAccessToken,
+                                                 String authToken,
                                                  HeaderCallOption clientProperties) {
     // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
     // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
     // username/password and bearer token authorization header authentication for this Flight Client.
-    final ClientIncomingAuthHeaderMiddleware.Factory factory =
+    final ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory =
         new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+    final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
     // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
     final FlightClient client = FlightClient.builder()
         .allocator(allocator)
         .location(Location.forGrpcInsecure(host, port))
-        .intercept(factory)
+        .intercept(authHeaderFactory)
+        .intercept(cookieFactory)
         .build();
-    return new AdhocFlightClient(client, allocator, authenticate(client, user, pass, factory, clientProperties));
+
+    final CredentialCallOption credentials;
+    if (!Strings.isNullOrEmpty(personalAccessToken)) {
+      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+    } else if (!Strings.isNullOrEmpty(authToken)) {
+      // TODO: compilation error if it was empty for now
+      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+    } else {
+      credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
+    }
+
+    return new AdhocFlightClient(
+        client,
+        allocator,
+        credentials);
   }
 
   /**
@@ -160,7 +201,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param clientProperties client properties to set during authentication.
    * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
    */
-  public static CredentialCallOption authenticate(FlightClient client,
+  public static CredentialCallOption authenticateUsernamePassword(FlightClient client,
                                                   String user, String pass,
                                                   ClientIncomingAuthHeaderMiddleware.Factory factory,
                                                   HeaderCallOption clientProperties) {
@@ -183,6 +224,43 @@ public final class AdhocFlightClient implements AutoCloseable {
     //properties.forEach(callHeaders::insert);
     //final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
     //callOptions.add(routingCallOptions);
+
+    // If provided, add client properties to CallOptions.
+    if (clientProperties != null) {
+      callOptions.add(clientProperties);
+    }
+
+    // Perform handshake with the Dremio Flight Server Endpoint.
+    client.handshake(callOptions.toArray(new CallOption[callOptions.size()]));
+
+    // Authentication is successful, extract the bearer token returned by the server from the
+    // ClientIncomingAuthHeaderMiddleware.Factory. The CredentialCallOption can be used in
+    // subsequent Flight RPC requests for bearer token authentication.
+    return factory.getCredentialCallOption();
+  }
+
+  /**
+   * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server Endpoint.
+   * @param client              the FlightClient instance to connect to Dremio.
+   * @param personalAccessToken the Personal Access token.
+   * @param factory             the factory to create ClientIncomingAuthHeaderMiddleware.
+   * @param clientProperties    client properties to set during authentication.
+   * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
+   */
+  public static CredentialCallOption authenticatePersonalAccessToken(FlightClient client,
+                                                     String personalAccessToken,
+                                                     ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                     HeaderCallOption clientProperties) {
+    final List<CallOption> callOptions = new ArrayList<>();
+
+    callOptions.add(new CredentialCallOption(new BearerCredentialWriter(personalAccessToken)));
+
+    final Map<String, String> properties = ImmutableMap.of("token-type", "pat");
+
+    final CallHeaders callHeaders = new FlightCallHeaders();
+    properties.forEach(callHeaders::insert);
+    final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+    callOptions.add(routingCallOptions);
 
     // If provided, add client properties to CallOptions.
     if (clientProperties != null) {
