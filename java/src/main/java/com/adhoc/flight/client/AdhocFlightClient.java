@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
 
@@ -74,16 +75,15 @@ public final class AdhocFlightClient implements AutoCloseable {
   /**
    * Creates a FlightClient connected to the Dremio server with encrypted TLS connection.
    *
-   * @param allocator           the BufferAllocator.
-   * @param host                the Dremio host.
-   * @param port                the Dremio port where Flight Server Endpoint is running on.
-   * @param user                the Dremio username.
-   * @param pass                the corresponding password.
-   * @param personalAccessToken the personal access token.
-   * @param authToken           the OAuth2 token.
-   * @param keyStorePath        path to the JKS.
-   * @param keyStorePass        the password to the JKS.
-   * @param clientProperties    the client properties to set during authentication.
+   * @param allocator         the BufferAllocator.
+   * @param host              the Dremio host.
+   * @param port              the Dremio port where Flight Server Endpoint is running on.
+   * @param user              the Dremio username.
+   * @param pass              the corresponding password.
+   * @param patOrAuthToken    the personal access token or OAuth2 token.
+   * @param keyStorePath      path to the JKS.
+   * @param keyStorePass      the password to the JKS.
+   * @param clientProperties  the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
@@ -91,82 +91,76 @@ public final class AdhocFlightClient implements AutoCloseable {
   public static AdhocFlightClient getEncryptedClient(BufferAllocator allocator,
                                                      String host, int port,
                                                      String user, String pass,
-                                                     String personalAccessToken,
-                                                     String authToken,
+                                                     String patOrAuthToken,
                                                      String keyStorePath,
                                                      String keyStorePass,
                                                      boolean verifyServer, HeaderCallOption clientProperties)
       throws Exception {
 
-    final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+    return getClientHelper(
+      allocator,
+      host, port,
+      user, pass,
+      patOrAuthToken,
+      clientProperties,
+      () -> {
+        FlightClient.Builder flightClientBuilder = FlightClient.builder()
+            .location(Location.forGrpcTls(host, port))
+            .useTls();
 
-    final FlightClient.Builder clientBuilder = FlightClient.builder()
-        .allocator(allocator)
-        .location(Location.forGrpcTls(host, port))
-        .intercept(cookieFactory)
-        .useTls();
-
-    ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory = null;
-    if (!Strings.isNullOrEmpty(pass)) {
-      // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
-      // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
-      // username/password and bearer token authorization header authentication for this Flight Client.
-      authHeaderFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-
-      // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-      clientBuilder.intercept(authHeaderFactory);
-    }
-
-    if (verifyServer) {
-      clientBuilder.verifyServer(false);
-    } else {
-      clientBuilder.trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
-    }
-
-    final FlightClient client = clientBuilder.build();
-
-    final CredentialCallOption credentials;
-    if (!Strings.isNullOrEmpty(personalAccessToken)) {
-      credentials = authenticatePatOrAuthToken(client, personalAccessToken, clientProperties);
-    } else if (!Strings.isNullOrEmpty(authToken)) {
-      credentials = authenticatePatOrAuthToken(client, authToken, clientProperties);
-    } else {
-      credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
-    }
-
-    return new AdhocFlightClient(
-        client,
-        allocator,
-        credentials
-    );
+          if (verifyServer) {
+            flightClientBuilder.verifyServer(false);
+          } else {
+            try {
+              flightClientBuilder
+                  .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
+            } catch (Exception e) {
+              e.printStackTrace();
+            }
+          }
+          return flightClientBuilder;
+        });
   }
 
   /**
    * Creates a FlightClient connected to the Dremio server with an unencrypted connection.
    *
-   * @param allocator           the BufferAllocator.
-   * @param host                the Dremio host.
-   * @param port                the Dremio port where Flight Server Endpoint is running on.
-   * @param user                the Dremio username.
-   * @param pass                the corresponding password.
-   * @param personalAccessToken the personal access token.
-   * @param authToken           the OAuth2 token.
-   * @param clientProperties    the client properties to set during authentication.
+   * @param allocator         the BufferAllocator.
+   * @param host              the Dremio host.
+   * @param port              the Dremio port where Flight Server Endpoint is running on.
+   * @param user              the Dremio username.
+   * @param pass              the corresponding password.
+   * @param patOrAuthToken    the personal access token or OAuth2 token.
+   * @param clientProperties  the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    */
   public static AdhocFlightClient getBasicClient(BufferAllocator allocator,
                                                  String host, int port,
                                                  String user, String pass,
-                                                 String personalAccessToken,
-                                                 String authToken,
+                                                 String patOrAuthToken,
                                                  HeaderCallOption clientProperties) {
 
-    final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+    return getClientHelper(
+      allocator,
+      host, port,
+      user, pass,
+      patOrAuthToken,
+      clientProperties,
+      () -> FlightClient.builder()
+        .location(Location.forGrpcInsecure(host, port)));
+  }
 
-    final FlightClient.Builder clientBuilder = FlightClient.builder()
+  private static AdhocFlightClient getClientHelper(BufferAllocator allocator,
+                                                   String host, int port,
+                                                   String user, String pass,
+                                                   String patOrAuthToken,
+                                                   HeaderCallOption clientProperties,
+                                                   Supplier<FlightClient.Builder> builder) {
+
+    final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+    final FlightClient.Builder flightClientBuilder = builder.get()
         .allocator(allocator)
-        .location(Location.forGrpcInsecure(host, port))
         .intercept(cookieFactory);
 
     ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory = null;
@@ -177,24 +171,30 @@ public final class AdhocFlightClient implements AutoCloseable {
       authHeaderFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
       // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-      clientBuilder.intercept(authHeaderFactory);
+      flightClientBuilder.intercept(authHeaderFactory);
     }
 
-    final FlightClient client = clientBuilder.build();
+    final FlightClient flightClient = flightClientBuilder.build();
+
+    if (!Strings.isNullOrEmpty(pass) && Strings.isNullOrEmpty(user)) {
+      throw new IllegalArgumentException("Username must be defined for password authentication.");
+    }
+
+    if (!Strings.isNullOrEmpty(patOrAuthToken) && !Strings.isNullOrEmpty(pass)) {
+      throw new IllegalArgumentException("Provide exactly one of: [pass, patOrAuthToken]");
+    }
 
     final CredentialCallOption credentials;
-    if (!Strings.isNullOrEmpty(personalAccessToken)) {
-      credentials = authenticatePatOrAuthToken(client, personalAccessToken, clientProperties);
-    } else if (!Strings.isNullOrEmpty(authToken)) {
-      credentials = authenticatePatOrAuthToken(client, authToken, clientProperties);
+    if (!Strings.isNullOrEmpty(patOrAuthToken)) {
+      credentials = authenticatePatOrAuthToken(flightClient, patOrAuthToken, clientProperties);
     } else {
-      credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
+      credentials = authenticateUsernamePassword(flightClient, user, pass, authHeaderFactory, clientProperties);
     }
 
     return new AdhocFlightClient(
-        client,
-        allocator,
-        credentials);
+      flightClient,
+      allocator,
+      credentials);
   }
 
   /**

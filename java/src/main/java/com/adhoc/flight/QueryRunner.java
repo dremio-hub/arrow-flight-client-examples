@@ -18,10 +18,10 @@
 package com.adhoc.flight;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
@@ -75,13 +75,9 @@ public class QueryRunner {
         description = "Dremio password")
     public String pass;
 
-    @Parameter(names = {"-pat", "--personalAccessToken"},
-        description = "Personal Access Token")
-    public String personalAccessToken;
-
-    @Parameter(names = {"-authToken", "--authToken"},
-        description = "OAuth2 Token")
-    public String authToken;
+    @Parameter(names = {"-pat", "--personalAccessToken", "-authToken", "--authToken"},
+        description = "Either a Personal Access Token or an OAuth2 Token")
+    public String patOrAuthToken;
 
     @Parameter(names = {"-query", "--sqlQuery"},
         description = "SQL query to test")
@@ -115,6 +111,11 @@ public class QueryRunner {
         description = "The specific engine")
     public String engine;
 
+    @Parameter(names = {"-sessionProperties", "--sessionProperties"},
+        description = "Key value pairs of SessionProperty, example: --sessionProperties key1:value1 key2:value2",
+        listConverter = SessionPropertyConverter.class)
+    public List<SessionProperty> sessionProperties = new ArrayList<>();
+
     @Parameter(names = {"-h", "--help"},
         description = "show usage", help = true)
     public boolean help = false;
@@ -146,8 +147,8 @@ public class QueryRunner {
     System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
     System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
 
-    // If no auth method provided, default to username/password
-    if (Strings.isNullOrEmpty(ARGUMENTS.personalAccessToken) && Strings.isNullOrEmpty(ARGUMENTS.authToken)) {
+    // If no auth method provided, default to demo username/password
+    if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
       if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
         ARGUMENTS.user = DEMO_USERNAME;
       }
@@ -220,14 +221,17 @@ public class QueryRunner {
    */
   public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
 
-    Map<String, String> sessionProperties = new HashMap<>();
+    final Map<String, String> sessionPropertiesMap = new HashMap<>();
 
-    // Additional session properties could be added similar to engine here
+    ARGUMENTS.sessionProperties.forEach( sessionProperty -> {
+      sessionPropertiesMap.put(sessionProperty.getKey(), sessionProperty.getValue());
+    });
+
     if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
-      sessionProperties.put("engine", ARGUMENTS.engine);
+      sessionPropertiesMap.put("engine", ARGUMENTS.engine);
     }
 
-    HeaderCallOption clientProperties = createClientProperties(sessionProperties);
+    HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
 
     try (final AdhocFlightClient client = createFlightClient(clientProperties)) {
 
@@ -304,20 +308,7 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
-    if (!Strings.isNullOrEmpty(ARGUMENTS.pass) && Strings.isNullOrEmpty(ARGUMENTS.user)) {
-      throw new IllegalArgumentException("Username must be defined for password authentication.");
-    }
 
-    final Set<String> inputAuthList = new HashSet<>();
-    // Java Set allows only one null value
-    inputAuthList.add(null);
-    inputAuthList.add(ARGUMENTS.pass);
-    inputAuthList.add(ARGUMENTS.personalAccessToken);
-    inputAuthList.add(ARGUMENTS.authToken);
-
-    if (inputAuthList.size() != 2) {
-      throw new IllegalArgumentException("Provide exactly one of: [pass, pat, authToken]");
-    }
 
     if (ARGUMENTS.enableTls) {
       Preconditions.checkNotNull(ARGUMENTS.keystorePath,
@@ -327,16 +318,14 @@ public class QueryRunner {
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
-          ARGUMENTS.personalAccessToken,
-          ARGUMENTS.authToken,
+          ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
           ARGUMENTS.disableServerVerification, clientProperties);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
-          ARGUMENTS.personalAccessToken,
-          ARGUMENTS.authToken,
+          ARGUMENTS.patOrAuthToken,
           clientProperties);
     }
   }
