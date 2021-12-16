@@ -26,14 +26,11 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
-import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
-import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -57,7 +54,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -78,14 +74,16 @@ public final class AdhocFlightClient implements AutoCloseable {
   /**
    * Creates a FlightClient connected to the Dremio server with encrypted TLS connection.
    *
-   * @param allocator        the BufferAllocator.
-   * @param host             the Dremio host.
-   * @param port             the Dremio port where Flight Server Endpoint is running on.
-   * @param user             the Dremio username.
-   * @param pass             the corresponding password.
-   * @param keyStorePath     path to the JKS.
-   * @param keyStorePass     the password to the JKS.
-   * @param clientProperties the client properties to set during authentication.
+   * @param allocator           the BufferAllocator.
+   * @param host                the Dremio host.
+   * @param port                the Dremio port where Flight Server Endpoint is running on.
+   * @param user                the Dremio username.
+   * @param pass                the corresponding password.
+   * @param personalAccessToken the personal access token.
+   * @param authToken           the OAuth2 token.
+   * @param keyStorePath        path to the JKS.
+   * @param keyStorePass        the password to the JKS.
+   * @param clientProperties    the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
@@ -99,22 +97,25 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String keyStorePass,
                                                      boolean verifyServer, HeaderCallOption clientProperties)
       throws Exception {
-    // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
-    // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
-    // username/password and bearer token authorization header authentication for this Flight Client.
-    final ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory =
-        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
-    // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-    final FlightClient.Builder clientBuilder = FlightClient.builder();
-    clientBuilder
+    final FlightClient.Builder clientBuilder = FlightClient.builder()
         .allocator(allocator)
         .location(Location.forGrpcTls(host, port))
-        .intercept(authHeaderFactory)
         .intercept(cookieFactory)
         .useTls();
+
+    ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory = null;
+    if (!Strings.isNullOrEmpty(pass)) {
+      // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
+      // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
+      // username/password and bearer token authorization header authentication for this Flight Client.
+      authHeaderFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+      // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
+      clientBuilder.intercept(authHeaderFactory);
+    }
 
     if (verifyServer) {
       clientBuilder.verifyServer(false);
@@ -126,10 +127,9 @@ public final class AdhocFlightClient implements AutoCloseable {
 
     final CredentialCallOption credentials;
     if (!Strings.isNullOrEmpty(personalAccessToken)) {
-      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+      credentials = authenticatePatOrAuthToken(client, personalAccessToken, clientProperties);
     } else if (!Strings.isNullOrEmpty(authToken)) {
-      // TODO: compilation error if it is empty for now
-      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+      credentials = authenticatePatOrAuthToken(client, authToken, clientProperties);
     } else {
       credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
     }
@@ -144,12 +144,14 @@ public final class AdhocFlightClient implements AutoCloseable {
   /**
    * Creates a FlightClient connected to the Dremio server with an unencrypted connection.
    *
-   * @param allocator        the BufferAllocator.
-   * @param host             the Dremio host.
-   * @param port             the Dremio port where Flight Server Endpoint is running on.
-   * @param user             the Dremio username.
-   * @param pass             the corresponding password.
-   * @param clientProperties the client properties to set during authentication.
+   * @param allocator           the BufferAllocator.
+   * @param host                the Dremio host.
+   * @param port                the Dremio port where Flight Server Endpoint is running on.
+   * @param user                the Dremio username.
+   * @param pass                the corresponding password.
+   * @param personalAccessToken the personal access token.
+   * @param authToken           the OAuth2 token.
+   * @param clientProperties    the client properties to set during authentication.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    */
@@ -159,28 +161,32 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                  String personalAccessToken,
                                                  String authToken,
                                                  HeaderCallOption clientProperties) {
-    // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
-    // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
-    // username/password and bearer token authorization header authentication for this Flight Client.
-    final ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory =
-        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
-    // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-    final FlightClient client = FlightClient.builder()
+    final FlightClient.Builder clientBuilder = FlightClient.builder()
         .allocator(allocator)
         .location(Location.forGrpcInsecure(host, port))
-        .intercept(authHeaderFactory)
-        .intercept(cookieFactory)
-        .build();
+        .intercept(cookieFactory);
+
+    ClientIncomingAuthHeaderMiddleware.Factory authHeaderFactory = null;
+    if (!Strings.isNullOrEmpty(pass)) {
+      // Create a new instance of ClientIncomingAuthHeaderMiddleware.Factory. This factory creates
+      // new instances of ClientIncomingAuthHeaderMiddleware. The middleware processes
+      // username/password and bearer token authorization header authentication for this Flight Client.
+      authHeaderFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+      // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
+      clientBuilder.intercept(authHeaderFactory);
+    }
+
+    final FlightClient client = clientBuilder.build();
 
     final CredentialCallOption credentials;
     if (!Strings.isNullOrEmpty(personalAccessToken)) {
-      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+      credentials = authenticatePatOrAuthToken(client, personalAccessToken, clientProperties);
     } else if (!Strings.isNullOrEmpty(authToken)) {
-      // TODO: compilation error if it was empty for now
-      credentials = authenticatePersonalAccessToken(client, personalAccessToken, authHeaderFactory, clientProperties);
+      credentials = authenticatePatOrAuthToken(client, authToken, clientProperties);
     } else {
       credentials = authenticateUsernamePassword(client, user, pass, authHeaderFactory, clientProperties);
     }
@@ -241,26 +247,17 @@ public final class AdhocFlightClient implements AutoCloseable {
 
   /**
    * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server Endpoint.
-   * @param client              the FlightClient instance to connect to Dremio.
-   * @param personalAccessToken the Personal Access token.
-   * @param factory             the factory to create ClientIncomingAuthHeaderMiddleware.
-   * @param clientProperties    client properties to set during authentication.
+   * @param client            the FlightClient instance to connect to Dremio.
+   * @param patOrAuthToken    the Personal Access token or OAuth2 token.
+   * @param clientProperties  client properties to set during authentication.
    * @return CredentialCallOption encapsulating the bearer token to use in subsequent requests.
    */
-  public static CredentialCallOption authenticatePersonalAccessToken(FlightClient client,
-                                                     String personalAccessToken,
-                                                     ClientIncomingAuthHeaderMiddleware.Factory factory,
-                                                     HeaderCallOption clientProperties) {
+  public static CredentialCallOption authenticatePatOrAuthToken(FlightClient client,
+                                                                String patOrAuthToken,
+                                                                HeaderCallOption clientProperties) {
     final List<CallOption> callOptions = new ArrayList<>();
 
-    callOptions.add(new CredentialCallOption(new BearerCredentialWriter(personalAccessToken)));
-
-    final Map<String, String> properties = ImmutableMap.of("token-type", "pat");
-
-    final CallHeaders callHeaders = new FlightCallHeaders();
-    properties.forEach(callHeaders::insert);
-    final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
-    callOptions.add(routingCallOptions);
+    callOptions.add(new CredentialCallOption(new BearerCredentialWriter(patOrAuthToken)));
 
     // If provided, add client properties to CallOptions.
     if (clientProperties != null) {
@@ -273,7 +270,7 @@ public final class AdhocFlightClient implements AutoCloseable {
     // Authentication is successful, extract the bearer token returned by the server from the
     // ClientIncomingAuthHeaderMiddleware.Factory. The CredentialCallOption can be used in
     // subsequent Flight RPC requests for bearer token authentication.
-    return factory.getCredentialCallOption();
+    return (CredentialCallOption) callOptions.get(0);
   }
 
   /**

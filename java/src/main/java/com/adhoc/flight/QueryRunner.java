@@ -18,7 +18,10 @@
 package com.adhoc.flight;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
@@ -48,6 +51,8 @@ public class QueryRunner {
   private static final String DROP_DEMO_TABLE = "DROP TABLE $scratch.dremio_flight_demo_table";
   private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
+  private static final String DEMO_USERNAME = "dremio";
+  private static final String DEMO_PASSWORD = "dremio123";
 
   /**
    * Class that holds all the command line arguments that can be used to run the
@@ -64,11 +69,11 @@ public class QueryRunner {
 
     @Parameter(names = {"-user", "--username"},
         description = "Dremio username")
-    public String user = "dremio";
+    public String user;
 
     @Parameter(names = {"-pass", "--password"},
         description = "Dremio password")
-    public String pass = "dremio123";
+    public String pass;
 
     @Parameter(names = {"-pat", "--personalAccessToken"},
         description = "Personal Access Token")
@@ -106,9 +111,9 @@ public class QueryRunner {
         description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
     public boolean runDemo = false;
 
-    @Parameter(names = {"-engine", "--engineId"},
-        description = "The specific engineId")
-    public String engineId;
+    @Parameter(names = {"-engine", "--engine"},
+        description = "The specific engine")
+    public String engine;
 
     @Parameter(names = {"-h", "--help"},
         description = "show usage", help = true)
@@ -140,6 +145,17 @@ public class QueryRunner {
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
     System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
     System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
+
+    // If no auth method provided, default to username/password
+    if (Strings.isNullOrEmpty(ARGUMENTS.personalAccessToken) && Strings.isNullOrEmpty(ARGUMENTS.authToken)) {
+      if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
+        ARGUMENTS.user = DEMO_USERNAME;
+      }
+
+      if (Strings.isNullOrEmpty(ARGUMENTS.pass)) {
+        ARGUMENTS.pass = DEMO_PASSWORD;
+      }
+    }
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
@@ -202,14 +218,16 @@ public class QueryRunner {
    *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
-  public static void runAdhoc(String pathToSaveQueryResultsTo, String engineId) throws Exception {
+  public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
 
-    HeaderCallOption clientProperties = null;
+    Map<String, String> sessionProperties = new HashMap<>();
 
-    if (!Strings.isNullOrEmpty(engineId)) {
-      final Map<String, String> properties = ImmutableMap.of("engine", engineId);
-      clientProperties = createClientProperties(properties);
+    // Additional session properties could be added similar to engine here
+    if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
+      sessionProperties.put("engine", ARGUMENTS.engine);
     }
+
+    HeaderCallOption clientProperties = createClientProperties(sessionProperties);
 
     try (final AdhocFlightClient client = createFlightClient(clientProperties)) {
 
@@ -243,7 +261,7 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
    *                   - UNAVAILABLE: Dremio resource is not available.
@@ -251,7 +269,7 @@ public class QueryRunner {
    */
   public static void runAdhoc() throws Exception {
 
-    runAdhoc(null, null);
+    runAdhoc(null);
   }
 
   public static void main(String[] args) throws Exception {
@@ -263,7 +281,7 @@ public class QueryRunner {
       } else if (ARGUMENTS.runDemo) {
         runDemo();
       } else {
-        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo, ARGUMENTS.engineId);
+        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
       }
     } finally {
       BUFFER_ALLOCATOR.close();
@@ -286,8 +304,19 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
-    if (!Strings.isNullOrEmpty(ARGUMENTS.personalAccessToken) && !Strings.isNullOrEmpty(ARGUMENTS.authToken)) {
-      throw new IllegalArgumentException("Cannot specify both Personal Access Token and OAuth Token.");
+    if (!Strings.isNullOrEmpty(ARGUMENTS.pass) && Strings.isNullOrEmpty(ARGUMENTS.user)) {
+      throw new IllegalArgumentException("Username must be defined for password authentication.");
+    }
+
+    final Set<String> inputAuthList = new HashSet<>();
+    // Java Set allows only one null value
+    inputAuthList.add(null);
+    inputAuthList.add(ARGUMENTS.pass);
+    inputAuthList.add(ARGUMENTS.personalAccessToken);
+    inputAuthList.add(ARGUMENTS.authToken);
+
+    if (inputAuthList.size() != 2) {
+      throw new IllegalArgumentException("Provide exactly one of: [pass, pat, authToken]");
     }
 
     if (ARGUMENTS.enableTls) {
