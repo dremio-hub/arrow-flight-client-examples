@@ -213,13 +213,14 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
    *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
+
 
     final Map<String, String> sessionPropertiesMap = new HashMap<>();
 

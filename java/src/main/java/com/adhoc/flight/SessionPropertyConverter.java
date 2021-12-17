@@ -26,9 +26,9 @@ public class SessionPropertyConverter implements IStringConverter<SessionPropert
   public SessionProperty convert(String keyValuePair) {
     final String[] parts = keyValuePair.split(":");
 
-    final String key = parts[0];
-    final String value = parts[1];
+    final String key = parts[0].trim();
+    final String value = parts[1].trim();
 
-    return new SessionProperty(key, value.trim());
+    return new SessionProperty(key, value);
   }
 }

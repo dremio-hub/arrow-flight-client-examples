@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
 
@@ -97,29 +96,24 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      boolean verifyServer, HeaderCallOption clientProperties)
       throws Exception {
 
+    final FlightClient.Builder flightClientBuilder = FlightClient.builder()
+        .location(Location.forGrpcTls(host, port))
+        .useTls();
+
+    if (verifyServer) {
+      flightClientBuilder.verifyServer(false);
+    } else {
+      flightClientBuilder
+        .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
+    }
+
     return getClientHelper(
       allocator,
       host, port,
       user, pass,
       patOrAuthToken,
       clientProperties,
-      () -> {
-        FlightClient.Builder flightClientBuilder = FlightClient.builder()
-            .location(Location.forGrpcTls(host, port))
-            .useTls();
-
-          if (verifyServer) {
-            flightClientBuilder.verifyServer(false);
-          } else {
-            try {
-              flightClientBuilder
-                  .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
-            } catch (Exception e) {
-              e.printStackTrace();
-            }
-          }
-          return flightClientBuilder;
-        });
+      flightClientBuilder);
   }
 
   /**
@@ -141,14 +135,16 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                  String patOrAuthToken,
                                                  HeaderCallOption clientProperties) {
 
+    final FlightClient.Builder flightClientBuilder = FlightClient.builder()
+        .location(Location.forGrpcInsecure(host, port));
+
     return getClientHelper(
       allocator,
       host, port,
       user, pass,
       patOrAuthToken,
       clientProperties,
-      () -> FlightClient.builder()
-        .location(Location.forGrpcInsecure(host, port)));
+      flightClientBuilder);
   }
 
   private static AdhocFlightClient getClientHelper(BufferAllocator allocator,
@@ -156,10 +152,23 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                    String user, String pass,
                                                    String patOrAuthToken,
                                                    HeaderCallOption clientProperties,
-                                                   Supplier<FlightClient.Builder> builder) {
+                                                   FlightClient.Builder builder) {
+
+    if (Strings.isNullOrEmpty(patOrAuthToken) && Strings.isNullOrEmpty(pass)) {
+      throw new IllegalArgumentException("No authentication method chosen.");
+    }
+
+    if (!Strings.isNullOrEmpty(pass) && Strings.isNullOrEmpty(user)) {
+      throw new IllegalArgumentException("Username must be defined for password authentication.");
+    }
+
+    if (!Strings.isNullOrEmpty(patOrAuthToken) && !Strings.isNullOrEmpty(pass)) {
+      throw new IllegalArgumentException("Provide exactly one of: [pass, patOrAuthToken]");
+    }
 
     final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
-    final FlightClient.Builder flightClientBuilder = builder.get()
+
+    builder
         .allocator(allocator)
         .intercept(cookieFactory);
 
@@ -171,18 +180,11 @@ public final class AdhocFlightClient implements AutoCloseable {
       authHeaderFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
       // Adds ClientIncomingAuthHeaderMiddleware.Factory instance to the FlightClient builder.
-      flightClientBuilder.intercept(authHeaderFactory);
+      builder.intercept(authHeaderFactory);
     }
 
-    final FlightClient flightClient = flightClientBuilder.build();
+    final FlightClient flightClient = builder.build();
 
-    if (!Strings.isNullOrEmpty(pass) && Strings.isNullOrEmpty(user)) {
-      throw new IllegalArgumentException("Username must be defined for password authentication.");
-    }
-
-    if (!Strings.isNullOrEmpty(patOrAuthToken) && !Strings.isNullOrEmpty(pass)) {
-      throw new IllegalArgumentException("Provide exactly one of: [pass, patOrAuthToken]");
-    }
 
     final CredentialCallOption credentials;
     if (!Strings.isNullOrEmpty(patOrAuthToken)) {

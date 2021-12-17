@@ -18,6 +18,7 @@
 package com.adhoc.flight;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -83,28 +84,17 @@ public class TestAdhocFlightClient {
   @Parameter(names = "--sessionProperties", variableArity = true, listConverter = SessionPropertyConverter.class)
   List<SessionProperty> sessionProperties;
 
-  @Test
-  public void testParseSessionProperties() {
-    JCommander jc = new JCommander(this);
-    jc.parse("--sessionProperties", "key1:value1", "key2:value2");
-    Assert.assertNotNull(sessionProperties);
-    Assert.assertEquals(2, sessionProperties.size());
-    Assert.assertEquals("key1", sessionProperties.get(0).getKey());
-    Assert.assertEquals("value1", sessionProperties.get(0).getValue());
-    Assert.assertEquals("key2", sessionProperties.get(1).getKey());
-    Assert.assertEquals("value2", sessionProperties.get(1).getValue());
-  }
-
   /**
    * Creates a new FlightClient with no client properties set during authentication.
    *
-   * @param host the Dremio host.
-   * @param port the port Dremio Flight Server Endpoint is running on.
-   * @param user the Dremio username.
-   * @param pass the password corresponding to the Dremio username provided.
+   * @param host            the Dremio host.
+   * @param port            the port Dremio Flight Server Endpoint is running on.
+   * @param user            the Dremio username.
+   * @param pass            the password corresponding to the Dremio username provided.
+   * @param patOrAuthToken  the personal access token or OAuth2 token.
    */
-  private void createBasicFlightClient(String host, int port, String user, String pass) {
-    createBasicFlightClient(host, port, user, pass, null, null);
+  private void createBasicFlightClient(String host, int port, String user, String pass, String patOrAuthToken) {
+    createBasicFlightClient(host, port, user, pass, patOrAuthToken, null);
   }
 
   /**
@@ -121,7 +111,7 @@ public class TestAdhocFlightClient {
                                        String user, String pass,
                                        String patOrAuthToken,
                                        HeaderCallOption clientProperties) {
-    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, null, clientProperties);
+    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken, clientProperties);
   }
 
   /**
@@ -146,7 +136,7 @@ public class TestAdhocFlightClient {
   @Test
   public void testSimpleQuery() throws Exception {
     // Create FlightClient connecting to Dremio.
-    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null);
 
     // Select
     client.runQuery(SIMPLE_QUERY, null, null, false);
@@ -188,7 +178,7 @@ public class TestAdhocFlightClient {
   @Test
   public void testSimpleQueryWithDefaultSchemaPath() throws Exception {
     // Create FlightClient connecting to Dremio.
-    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD);
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null);
 
     // Create table
     client.runQuery(CREATE_TABLE, null, null, false);
@@ -206,29 +196,64 @@ public class TestAdhocFlightClient {
   @Test
   public void testBadHostname() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD));
+        () -> createBasicFlightClient("1.1.1.1", PORT, USERNAME, PASSWORD, null));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPort() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD));
+        () -> createBasicFlightClient(HOST, 1111, USERNAME, PASSWORD, null));
     assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
   }
 
   @Test
   public void testBadPassword() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD"));
+        () -> createBasicFlightClient(HOST, PORT, USERNAME, "BAD_PASSWORD", null));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
   }
 
   @Test
   public void testNonExistentUser() {
     final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
-        () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD));
+        () -> createBasicFlightClient(HOST, PORT, "BAD_USER", PASSWORD, null));
     assertEquals(FlightStatusCode.UNAUTHENTICATED, fre.status().code());
+  }
 
+  @Test
+  public void testNoAuthProvided() {
+    final Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> createBasicFlightClient(HOST, PORT, USERNAME, null, null));
+
+    assertTrue(exception.getMessage().contains("No authentication method chosen"));
+  }
+
+  @Test
+  public void testMultipleAuthProvided() {
+    final Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, "SOME_TOKEN"));
+
+    assertTrue(exception.getMessage().contains("Provide exactly one of"));
+  }
+
+  @Test
+  public void testNoUsernameProvidedWithPassword() {
+    final Exception exception = assertThrows(IllegalArgumentException.class,
+        () -> createBasicFlightClient(HOST, PORT, null, PASSWORD, null));
+
+    assertTrue(exception.getMessage().contains("Username must be defined for password authentication"));
+  }
+
+  @Test
+  public void testParseSessionProperties() {
+    JCommander jc = new JCommander(this);
+    jc.parse("--sessionProperties", "key1:value1", "key2:value2");
+    Assert.assertNotNull(sessionProperties);
+    Assert.assertEquals(2, sessionProperties.size());
+    Assert.assertEquals("key1", sessionProperties.get(0).getKey());
+    Assert.assertEquals("value1", sessionProperties.get(0).getValue());
+    Assert.assertEquals("key2", sessionProperties.get(1).getKey());
+    Assert.assertEquals("value2", sessionProperties.get(1).getValue());
   }
 }
