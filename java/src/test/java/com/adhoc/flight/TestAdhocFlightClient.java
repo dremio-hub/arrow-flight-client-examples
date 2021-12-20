@@ -18,13 +18,20 @@
 package com.adhoc.flight;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.HeaderCallOption;
@@ -62,6 +69,10 @@ public class TestAdhocFlightClient {
   public static final String CREATE_TABLE_NO_SCHEMA = "create table $scratch.simple_table as " + SIMPLE_QUERY;
   public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
   public static final String DROP_TABLE = "drop table $scratch.simple_table";
+  public static final Map<String, String> EXPECTED_HEADERS = new HashMap<String, String>() {{
+      put("authorization", "some-token");
+      put("engine", "123");
+    }};
 
   private AdhocFlightClient client;
   private BufferAllocator allocator;
@@ -111,7 +122,8 @@ public class TestAdhocFlightClient {
                                        String user, String pass,
                                        String patOrAuthToken,
                                        HeaderCallOption clientProperties) {
-    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken, clientProperties);
+    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
+        clientProperties, null);
   }
 
   /**
@@ -130,7 +142,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties)
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null,
-      null, DISABLE_SERVER_VERIFICATION, clientProperties);
+      null, DISABLE_SERVER_VERIFICATION, clientProperties, null);
   }
 
   @Test
@@ -255,5 +267,61 @@ public class TestAdhocFlightClient {
     Assert.assertEquals("value1", sessionProperties.get(0).getValue());
     Assert.assertEquals("key2", sessionProperties.get(1).getKey());
     Assert.assertEquals("value2", sessionProperties.get(1).getValue());
+  }
+
+  @Test
+  public void testHeaderPassdown() {
+    final CallHeaders callHeaders = new FlightCallHeaders();
+    callHeaders.insert("engine", "123");
+
+    final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
+
+    final HeaderClientMiddlewareFactory clientFactory = new HeaderClientMiddlewareFactory();
+    final List<FlightClientMiddleware.Factory> flightClientMiddlewareList = new ArrayList<>();
+
+    flightClientMiddlewareList.add(clientFactory);
+
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption,
+      flightClientMiddlewareList);
+
+    for (final Map.Entry<String, String> entry : EXPECTED_HEADERS.entrySet()) {
+      if (entry.getKey().equals("authorization")) {
+        assertNotNull(entry.getKey());
+      } else {
+        assertEquals(entry.getValue(), clientFactory.textHeaders.get(entry.getKey()));
+      }
+    }
+  }
+
+  static class HeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
+    Map<String, String> textHeaders = new HashMap<>();
+
+    @Override
+    public FlightClientMiddleware onCallStarted(CallInfo info) {
+      return new HeaderClientMiddleware(this);
+    }
+  }
+
+  static class HeaderClientMiddleware implements FlightClientMiddleware {
+    private final HeaderClientMiddlewareFactory factory;
+
+    public HeaderClientMiddleware(HeaderClientMiddlewareFactory factory) {
+      this.factory = factory;
+    }
+
+    @Override
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      outgoingHeaders.keys().forEach( key ->
+          factory.textHeaders.put(key, outgoingHeaders.get(key)));
+    }
+
+    @Override
+    public void onHeadersReceived(CallHeaders incomingHeaders) {
+      incomingHeaders.keys().forEach( key ->
+          factory.textHeaders.put(key, incomingHeaders.get(key)));
+    }
+
+    @Override
+    public void onCallCompleted(CallStatus status) {}
   }
 }

@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
@@ -83,6 +84,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param keyStorePath      path to the JKS.
    * @param keyStorePass      the password to the JKS.
    * @param clientProperties  the client properties to set during authentication.
+   * @param middlewares       additional middlewares to intercept.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
@@ -93,12 +95,20 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String patOrAuthToken,
                                                      String keyStorePath,
                                                      String keyStorePass,
-                                                     boolean verifyServer, HeaderCallOption clientProperties)
+                                                     boolean verifyServer,
+                                                     HeaderCallOption clientProperties,
+                                                     List<FlightClientMiddleware.Factory> middlewares)
       throws Exception {
 
     final FlightClient.Builder flightClientBuilder = FlightClient.builder()
         .location(Location.forGrpcTls(host, port))
         .useTls();
+
+    if (middlewares != null) {
+      for (FlightClientMiddleware.Factory middleware : middlewares) {
+        flightClientBuilder.intercept(middleware);
+      }
+    }
 
     if (verifyServer) {
       flightClientBuilder.verifyServer(false);
@@ -126,6 +136,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param pass              the corresponding password.
    * @param patOrAuthToken    the personal access token or OAuth2 token.
    * @param clientProperties  the client properties to set during authentication.
+   * @param middlewares       additional middlewares to intercept.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    */
@@ -133,10 +144,17 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                  String host, int port,
                                                  String user, String pass,
                                                  String patOrAuthToken,
-                                                 HeaderCallOption clientProperties) {
+                                                 HeaderCallOption clientProperties,
+                                                 List<FlightClientMiddleware.Factory> middlewares) {
 
     final FlightClient.Builder flightClientBuilder = FlightClient.builder()
         .location(Location.forGrpcInsecure(host, port));
+
+    if (middlewares != null) {
+      for (FlightClientMiddleware.Factory middleware : middlewares) {
+        flightClientBuilder.intercept(middleware);
+      }
+    }
 
     return getClientHelper(
       allocator,
@@ -184,7 +202,6 @@ public final class AdhocFlightClient implements AutoCloseable {
     }
 
     final FlightClient flightClient = builder.build();
-
 
     final CredentialCallOption credentials;
     if (!Strings.isNullOrEmpty(patOrAuthToken)) {
