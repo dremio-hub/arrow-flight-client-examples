@@ -286,7 +286,7 @@ public class TestAdhocFlightClient {
 
     for (final Map.Entry<String, String> entry : EXPECTED_HEADERS.entrySet()) {
       if (entry.getKey().equals("authorization")) {
-        assertNotNull(entry.getKey());
+        assertNotNull(clientFactory.textHeaders.get(entry.getKey()));
       } else {
         assertEquals(entry.getValue(), clientFactory.textHeaders.get(entry.getKey()));
       }
@@ -294,10 +294,11 @@ public class TestAdhocFlightClient {
   }
 
   static class HeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
-    Map<String, String> textHeaders = new HashMap<>();
+    Map<String, String> textHeaders = null;
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
+      textHeaders = new HashMap<>();
       return new HeaderClientMiddleware(this);
     }
   }
