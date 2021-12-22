@@ -22,9 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -59,6 +57,9 @@ public class TestAdhocFlightClient {
   public static final String SIMPLE_QUERY = "select * from (VALUES(1,2,3),(4,5,6))";
   public static final boolean DISABLE_SERVER_VERIFICATION = true;
 
+  public static final String KEY_SCHEMA_PATH = "SCHEMA";
+  public static final String KEY_ROUTING_TAG = "ROUTING_TAG";
+  public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
   public static final String DEFAULT_SCHEMA_PATH = "$scratch";
   public static final String DEFAULT_ROUTING_TAG = "test-routing-tag";
   public static final String DEFAULT_ROUTING_QUEUE = "Low Cost User Queries";
@@ -119,7 +120,7 @@ public class TestAdhocFlightClient {
                                        String patOrAuthToken,
                                        HeaderCallOption clientProperties) {
     client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
-        clientProperties, null);
+        clientProperties);
   }
 
   /**
@@ -138,7 +139,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties)
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null,
-      null, DISABLE_SERVER_VERIFICATION, clientProperties, null);
+      null, DISABLE_SERVER_VERIFICATION, clientProperties);
   }
 
   @Test
@@ -165,9 +166,9 @@ public class TestAdhocFlightClient {
   public void testSimpleQueryWithClientPropertiesDuringAuth() throws Exception {
     // Create HeaderCallOption to transport Dremio client properties.
     final CallHeaders callHeaders = new FlightCallHeaders();
-    callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
-    callHeaders.insert("routing_tag", DEFAULT_ROUTING_TAG);
-    callHeaders.insert("routing_queue", DEFAULT_ROUTING_QUEUE);
+    callHeaders.insert(KEY_SCHEMA_PATH, DEFAULT_SCHEMA_PATH);
+    callHeaders.insert(KEY_ROUTING_TAG, DEFAULT_ROUTING_TAG);
+    callHeaders.insert(KEY_ROUTING_QUEUE, DEFAULT_ROUTING_QUEUE);
     final HeaderCallOption clientProperties = new HeaderCallOption(callHeaders);
 
     // Create FlightClient connecting to Dremio.
@@ -261,29 +262,25 @@ public class TestAdhocFlightClient {
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
 
     final HeaderClientMiddlewareFactory clientFactory = new HeaderClientMiddlewareFactory();
-    final List<FlightClientMiddleware.Factory> flightClientMiddlewareList = new ArrayList<>();
 
-    flightClientMiddlewareList.add(clientFactory);
-
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption,
-      flightClientMiddlewareList);
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption);
 
     for (final Map.Entry<String, String> entry : EXPECTED_HEADERS.entrySet()) {
       if (entry.getKey().equalsIgnoreCase("authorization")) {
-        assertNotNull(clientFactory.textHeaders.get(entry.getKey()));
+        assertNotNull(clientFactory.headers.get(entry.getKey()));
       } else {
         assertEquals(entry.getValue().toLowerCase(Locale.ROOT),
-            clientFactory.textHeaders.get(entry.getKey()).toLowerCase(Locale.ROOT));
+            clientFactory.headers.get(entry.getKey()).toLowerCase(Locale.ROOT));
       }
     }
   }
 
   static class HeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
-    Map<String, String> textHeaders = null;
+    Map<String, String> headers = null;
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
-      textHeaders = new HashMap<>();
+      headers = new HashMap<>();
       return new HeaderClientMiddleware(this);
     }
   }
@@ -297,14 +294,13 @@ public class TestAdhocFlightClient {
 
     @Override
     public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-      outgoingHeaders.keys().forEach( key ->
-          factory.textHeaders.put(key, outgoingHeaders.get(key)));
+
     }
 
     @Override
     public void onHeadersReceived(CallHeaders incomingHeaders) {
       incomingHeaders.keys().forEach( key ->
-          factory.textHeaders.put(key, incomingHeaders.get(key)));
+          factory.headers.put(key, incomingHeaders.get(key)));
     }
 
     @Override

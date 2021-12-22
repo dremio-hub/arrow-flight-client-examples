@@ -17,6 +17,8 @@
 package com.adhoc.flight;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -44,13 +46,21 @@ import org.junit.Test;
 import com.adhoc.flight.client.AdhocFlightClient;
 import com.google.common.base.Strings;
 
-public class TestWithMockServer {
+public class TestWithFlightServer {
   private static final String USERNAME = "dremio";
   private static final String PASSWORD = "dremio123";
+  private static final String HOST = "localhost";
+  private static final int PORT = 10000;
   private static final BufferAllocator ALLOCATOR = new RootAllocator();
 
-  private static FlightServer server;
-  private AdhocFlightClient client;
+  private static final Map<String, String> EXPECTED_HEADERS_BASIC = new HashMap<String, String>() {
+      {
+        put("authorization", "Basic");
+        put("engine", "123");
+      }
+  };
+
+  private FlightServer server;
   private HeaderServerMiddlewareFactory headerServerMiddlewareFactory;
 
   @Before
@@ -65,38 +75,42 @@ public class TestWithMockServer {
   }
 
   @Test
-  public void test() throws IOException {
+  public void testHeadersReceivedFromClientBasic() {
     final CallHeaders callHeaders = new FlightCallHeaders();
     callHeaders.insert("engine", "123");
 
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
 
-    client = AdhocFlightClient
-      .getBasicClient(ALLOCATOR, "localhost", 9999, USERNAME, PASSWORD, null, callOption,
-        null);
+    AdhocFlightClient.getBasicClient(ALLOCATOR, HOST, PORT, USERNAME, PASSWORD, null, callOption);
 
+    final Map<String, String> receivedHeaders = headerServerMiddlewareFactory.headers;
+    EXPECTED_HEADERS_BASIC.forEach( (key, value) -> {
+      if (key.equalsIgnoreCase("authorization")) {
+        final String[] authorizationHeaders = receivedHeaders.get(key).split(" ");
 
-
-    assertEquals(1, 1);
+        assertEquals(value, authorizationHeaders[0]);
+        assertFalse(Strings.isNullOrEmpty(authorizationHeaders[1]));
+      } else {
+        assertTrue(value.equalsIgnoreCase(receivedHeaders.get(key)));
+      }
+    });
   }
 
-  public FlightServer getServer() throws IOException {
-
-    NoOpFlightProducer producer = new NoOpFlightProducer();
-    final Location location = Location.forGrpcInsecure("localhost", 10000);
+  private FlightServer getServer() {
+    final NoOpFlightProducer producer = new NoOpFlightProducer();
+    final Location location = Location.forGrpcInsecure(HOST, PORT);
 
     headerServerMiddlewareFactory = new HeaderServerMiddlewareFactory();
 
     server = FlightServer.builder(ALLOCATOR, location, producer)
-      .headerAuthenticator(new GeneratedBearerTokenAuthenticator(new BasicCallHeaderAuthenticator(this::validate)))
+      .headerAuthenticator(new GeneratedBearerTokenAuthenticator(new BasicCallHeaderAuthenticator(this::authenticate)))
       .middleware(FlightServerMiddleware.Key.of("test"), headerServerMiddlewareFactory)
       .build();
-
 
     return server;
   }
 
-  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+  private CallHeaderAuthenticator.AuthResult authenticate(String username, String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
     }
@@ -110,28 +124,30 @@ public class TestWithMockServer {
   }
 
   static class HeaderServerMiddlewareFactory implements FlightServerMiddleware.Factory<HeaderServerMiddleware> {
-    Map<String, String> headers = null;
+    private Map<String, String> headers;
 
     @Override
     public HeaderServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
         RequestContext context) {
       headers = new HashMap<>();
-      return new HeaderServerMiddleware(this);
+      return new HeaderServerMiddleware(this, incomingHeaders);
     }
   }
 
   static class HeaderServerMiddleware implements FlightServerMiddleware {
     private final HeaderServerMiddlewareFactory factory;
 
-    public HeaderServerMiddleware(HeaderServerMiddlewareFactory factory) {
+    public HeaderServerMiddleware(HeaderServerMiddlewareFactory factory, CallHeaders incomingHeaders) {
       this.factory = factory;
+
+      incomingHeaders.keys().forEach( key -> {
+        factory.headers.put(key, incomingHeaders.get(key));
+      });
     }
 
     @Override
     public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-      outgoingHeaders.keys().forEach( key -> {
-        factory.headers.put(key, outgoingHeaders.get(key));
-      });
+
     }
 
     @Override
