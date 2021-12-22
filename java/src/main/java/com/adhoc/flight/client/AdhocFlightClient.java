@@ -26,11 +26,14 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -55,6 +58,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -242,13 +246,14 @@ public final class AdhocFlightClient implements AutoCloseable {
     //       initial authentication. Below code snippet demonstrates how these two properties
     //       can be set.
 
-    //final Map<String, String> properties = ImmutableMap.of(
-    //        "routing-tag", "test-routing-tag",
-    //        "routing-queue", "Low Cost User Queries");
-    //final CallHeaders callHeaders = new FlightCallHeaders();
-    //properties.forEach(callHeaders::insert);
-    //final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
-    //callOptions.add(routingCallOptions);
+    final Map<String, String> properties = ImmutableMap.of(
+            "routing-tag", "test-routing-tag",
+            "routing-queue", "Low Cost User Queries");
+    final CallHeaders callHeaders = new FlightCallHeaders();
+    properties.forEach(callHeaders::insert);
+    final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+    callOptions.add(routingCallOptions);
+
 
     // If provided, add client properties to CallOptions.
     if (clientProperties != null) {
