@@ -26,16 +26,12 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
-import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
-import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
@@ -58,7 +54,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.adhoc.flight.utils.QueryUtils;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Adhoc Flight Client encapsulating an active FlightClient and a corresponding
@@ -88,7 +83,6 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param keyStorePath      path to the JKS.
    * @param keyStorePass      the password to the JKS.
    * @param clientProperties  the client properties to set during authentication.
-   * @param middlewares       additional middlewares to intercept.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    * @throws Exception RuntimeException if unable to access JKS with provided information.
@@ -100,19 +94,12 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String keyStorePath,
                                                      String keyStorePass,
                                                      boolean verifyServer,
-                                                     HeaderCallOption clientProperties,
-                                                     List<FlightClientMiddleware.Factory> middlewares)
+                                                     HeaderCallOption clientProperties)
       throws Exception {
 
     final FlightClient.Builder flightClientBuilder = FlightClient.builder()
         .location(Location.forGrpcTls(host, port))
         .useTls();
-
-    if (middlewares != null) {
-      for (FlightClientMiddleware.Factory middleware : middlewares) {
-        flightClientBuilder.intercept(middleware);
-      }
-    }
 
     if (verifyServer) {
       flightClientBuilder.verifyServer(false);
@@ -140,7 +127,6 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param pass              the corresponding password.
    * @param patOrAuthToken    the personal access token or OAuth2 token.
    * @param clientProperties  the client properties to set during authentication.
-   * @param middlewares       additional middlewares to intercept.
    * @return an AdhocFlightClient encapsulating the client instance and CallCredentialOption
    *         with bearer token for subsequent FlightRPC requests.
    */
@@ -148,17 +134,10 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                  String host, int port,
                                                  String user, String pass,
                                                  String patOrAuthToken,
-                                                 HeaderCallOption clientProperties,
-                                                 List<FlightClientMiddleware.Factory> middlewares) {
+                                                 HeaderCallOption clientProperties) {
 
     final FlightClient.Builder flightClientBuilder = FlightClient.builder()
         .location(Location.forGrpcInsecure(host, port));
-
-    if (middlewares != null) {
-      for (FlightClientMiddleware.Factory middleware : middlewares) {
-        flightClientBuilder.intercept(middleware);
-      }
-    }
 
     return getClientHelper(
       allocator,
@@ -242,17 +221,17 @@ public final class AdhocFlightClient implements AutoCloseable {
     // insert the credentials into the Authorization header to authenticate with the server.
     callOptions.add(new CredentialCallOption(new BasicAuthCredentialWriter(user, pass)));
 
-    // Note: Dremio client properties "routing-tag" and "routing-queue" can only be set during
+    // Note: Dremio client properties "ROUTING_TAG" and "ROUTING_QUEUE" can only be set during
     //       initial authentication. Below code snippet demonstrates how these two properties
     //       can be set.
-
-    final Map<String, String> properties = ImmutableMap.of(
-            "routing-tag", "test-routing-tag",
-            "routing-queue", "Low Cost User Queries");
-    final CallHeaders callHeaders = new FlightCallHeaders();
-    properties.forEach(callHeaders::insert);
-    final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
-    callOptions.add(routingCallOptions);
+    //
+    //    final Map<String, String> properties = ImmutableMap.of(
+    //            "ROUTING_TAG", "test-routing-tag",
+    //            "ROUTING_QUEUE", "Low Cost User Queries");
+    //    final CallHeaders callHeaders = new FlightCallHeaders();
+    //    properties.forEach(callHeaders::insert);
+    //    final HeaderCallOption routingCallOptions = new HeaderCallOption(callHeaders);
+    //    callOptions.add(routingCallOptions);
 
 
     // If provided, add client properties to CallOptions.

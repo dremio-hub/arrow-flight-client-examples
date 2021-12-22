@@ -143,13 +143,13 @@ public class QueryRunner {
     System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
         "authorization header authentication.");
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
-    System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
-    System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
+    System.out.println("[INFO] Setting client property: ROUTING_TAG => test-routing-tag");
+    System.out.println("[INFO] Setting client property: ROUTING_QUEUE => Low Cost User Queries");
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
-        "routing-tag", "test-routing-tag",
-        "routing-queue", "Low Cost User Queries");
+        "ROUTING_TAG", "test-routing-tag",
+        "ROUTING_QUEUE", "Low Cost User Queries");
     final HeaderCallOption routingCallOption = createClientProperties(properties);
 
     // Authenticates FlightClient with routing properties.
@@ -172,7 +172,7 @@ public class QueryRunner {
 
       // Set default schema path to "$scratch" for the next FlightRPC request.
       final Map<String, String> schemaProperty = ImmutableMap.of(
-          "schema", DEMO_TABLE_SCHEMA);
+          "SCHEMA", DEMO_TABLE_SCHEMA);
       final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
       // Run query "select * from dremio_flight_demo_table" without schema path.
       client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, null, true);
@@ -319,15 +319,13 @@ public class QueryRunner {
           ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
           ARGUMENTS.disableServerVerification,
-          clientProperties,
-          null);
+          clientProperties);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.patOrAuthToken,
-          clientProperties,
-          null);
+          clientProperties);
     }
   }
 
