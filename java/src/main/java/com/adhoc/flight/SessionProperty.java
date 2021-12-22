@@ -16,23 +16,14 @@
 
 package com.adhoc.flight;
 
+import java.util.AbstractMap;
+
 /**
- * Object representing each individual key value pair provided in the command line.
+ * Object representing each individual SessionProperty key value pair provided in the command line.
  */
-public class SessionProperty {
-  private final String key;
-  private final String value;
+public class SessionProperty extends AbstractMap.SimpleEntry<String, String> {
 
   public SessionProperty(String key, String value) {
-    this.key = key;
-    this.value = value;
-  }
-
-  public String getKey() {
-    return key;
-  }
-
-  public String getValue() {
-    return value;
+    super(key, value);
   }
 }

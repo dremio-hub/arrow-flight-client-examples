@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -39,7 +40,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -47,8 +47,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.adhoc.flight.client.AdhocFlightClient;
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 
 /**
  * Test Adhoc Flight Client.
@@ -92,8 +90,6 @@ public class TestAdhocFlightClient {
   @Rule
   public ExpectedException expectedEx = ExpectedException.none();
 
-  @Parameter(names = "--sessionProperties", variableArity = true, listConverter = SessionPropertyConverter.class)
-  List<SessionProperty> sessionProperties;
 
   /**
    * Creates a new FlightClient with no client properties set during authentication.
@@ -258,18 +254,6 @@ public class TestAdhocFlightClient {
   }
 
   @Test
-  public void testParseSessionProperties() {
-    JCommander jc = new JCommander(this);
-    jc.parse("--sessionProperties", "key1:value1", "key2:value2");
-    Assert.assertNotNull(sessionProperties);
-    Assert.assertEquals(2, sessionProperties.size());
-    Assert.assertEquals("key1", sessionProperties.get(0).getKey());
-    Assert.assertEquals("value1", sessionProperties.get(0).getValue());
-    Assert.assertEquals("key2", sessionProperties.get(1).getKey());
-    Assert.assertEquals("value2", sessionProperties.get(1).getValue());
-  }
-
-  @Test
   public void testHeaderPassdown() {
     final CallHeaders callHeaders = new FlightCallHeaders();
     callHeaders.insert("engine", "123");
@@ -285,10 +269,11 @@ public class TestAdhocFlightClient {
       flightClientMiddlewareList);
 
     for (final Map.Entry<String, String> entry : EXPECTED_HEADERS.entrySet()) {
-      if (entry.getKey().equals("authorization")) {
+      if (entry.getKey().equalsIgnoreCase("authorization")) {
         assertNotNull(clientFactory.textHeaders.get(entry.getKey()));
       } else {
-        assertEquals(entry.getValue(), clientFactory.textHeaders.get(entry.getKey()));
+        assertEquals(entry.getValue().toLowerCase(Locale.ROOT),
+            clientFactory.textHeaders.get(entry.getKey()).toLowerCase(Locale.ROOT));
       }
     }
   }

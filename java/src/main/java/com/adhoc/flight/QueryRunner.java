@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.adhoc.flight;
 
 import java.io.File;
@@ -60,39 +59,39 @@ public class QueryRunner {
    */
   static class CommandLineArguments {
     @Parameter(names = {"-host", "--hostname"},
-        description = "Dremio co-ordinator hostname")
+        description = "Dremio co-ordinator hostname. Defaults to \"localhost\".")
     public String host = "localhost";
 
     @Parameter(names = {"-port", "--flightport"},
-        description = "Dremio flight server port")
+        description = "Dremio flight server port. Defaults to 32010.")
     public int port = 32010;
 
     @Parameter(names = {"-user", "--username"},
-        description = "Dremio username")
+        description = "Dremio username. Defaults to \"dremio\".")
     public String user;
 
     @Parameter(names = {"-pass", "--password"},
-        description = "Dremio password")
+        description = "Dremio password. Defaults to \"dremio123\".")
     public String pass;
 
     @Parameter(names = {"-pat", "--personalAccessToken", "-authToken", "--authToken"},
-        description = "Either a Personal Access Token or an OAuth2 Token")
+        description = "Either a Personal Access Token or an OAuth2 Token.")
     public String patOrAuthToken;
 
     @Parameter(names = {"-query", "--sqlQuery"},
-        description = "SQL query to test")
+        description = "SQL query to test.")
     public String query = null;
 
     @Parameter(names = {"-binpath", "--saveBinaryPath"},
-        description = "path to save the SQL result binary to")
+        description = "path to save the SQL result binary to.")
     public String pathToSaveQueryResultsTo = null;
 
     @Parameter(names = {"-tls", "--tls"},
-        description = "Enable encrypted connection")
+        description = "Enable encrypted connection. Defaults to false.")
     public boolean enableTls = false;
 
     @Parameter(names = {"-dsv", "--disableServerVerification"},
-        description = "Disable TLS server verification.")
+        description = "Disable TLS server verification. Defaults to false.")
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
@@ -100,15 +99,15 @@ public class QueryRunner {
     public String keystorePath = null;
 
     @Parameter(names = {"-kstpass", "--keyStorePassword"},
-        description = "The jks keystore password")
+        description = "The jks keystore password.")
     public String keystorePass = null;
 
     @Parameter(names = {"-demo", "--runDemo"},
-        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
+        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint. Defaults to false.")
     public boolean runDemo = false;
 
     @Parameter(names = {"-engine", "--engine"},
-        description = "The specific engine")
+        description = "The specific engine to run against.")
     public String engine;
 
     @Parameter(names = {"-sessionProperties", "--sessionProperties"},
@@ -117,7 +116,7 @@ public class QueryRunner {
     public List<SessionProperty> sessionProperties = new ArrayList<>();
 
     @Parameter(names = {"-h", "--help"},
-        description = "show usage", help = true)
+        description = "Show usage.", help = true)
     public boolean help = false;
   }
 
@@ -146,17 +145,6 @@ public class QueryRunner {
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
     System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
     System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
-
-    // If no auth method provided, default to demo username/password
-    if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
-      if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
-        ARGUMENTS.user = DEMO_USERNAME;
-      }
-
-      if (Strings.isNullOrEmpty(ARGUMENTS.pass)) {
-        ARGUMENTS.pass = DEMO_PASSWORD;
-      }
-    }
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
@@ -232,7 +220,7 @@ public class QueryRunner {
       sessionPropertiesMap.put("engine", ARGUMENTS.engine);
     }
 
-    HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
+    final HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
 
     try (final AdhocFlightClient client = createFlightClient(clientProperties)) {
 
@@ -309,7 +297,16 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+    // If no auth method provided, default to demo username/password
+    if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
+      if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
+        ARGUMENTS.user = DEMO_USERNAME;
+      }
 
+      if (Strings.isNullOrEmpty(ARGUMENTS.pass)) {
+        ARGUMENTS.pass = DEMO_PASSWORD;
+      }
+    }
 
     if (ARGUMENTS.enableTls) {
       Preconditions.checkNotNull(ARGUMENTS.keystorePath,
