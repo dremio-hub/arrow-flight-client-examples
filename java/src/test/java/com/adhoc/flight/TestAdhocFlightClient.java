@@ -18,13 +18,13 @@
 package com.adhoc.flight;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -49,7 +49,7 @@ import com.adhoc.flight.client.AdhocFlightClient;
 import com.google.common.base.Strings;
 
 /**
- * Test Adhoc Flight Client.
+ * Test Adhoc Flight Client with a live Dremio instance.
  */
 public class TestAdhocFlightClient {
   private static final String HOST = "localhost";
@@ -71,7 +71,7 @@ public class TestAdhocFlightClient {
   public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
   public static final String DROP_TABLE = "drop table $scratch.simple_table";
   public static final Map<String, String> EXPECTED_HEADERS = new HashMap<String, String>() {{
-      put("authorization", "Bearer");
+      put(KEY_ROUTING_QUEUE, DEFAULT_ROUTING_QUEUE);
       put("engine", "123");
     }
   };
@@ -259,6 +259,7 @@ public class TestAdhocFlightClient {
   @Test
   public void testHeaderPassDown() {
     final CallHeaders callHeaders = new FlightCallHeaders();
+    callHeaders.insert(KEY_ROUTING_QUEUE, DEFAULT_ROUTING_QUEUE);
     callHeaders.insert("engine", "123");
 
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
@@ -273,11 +274,14 @@ public class TestAdhocFlightClient {
       callOption, flightClientMiddlewareList);
 
     EXPECTED_HEADERS.forEach( (key, value) -> {
+      key = key.toLowerCase(Locale.ROOT);
+      value = value.toLowerCase(Locale.ROOT);
+
       if (key.equalsIgnoreCase("authorization")) {
         final String[] authorizationHeaders = clientFactory.headers.get(key).split(" ");
 
         assertTrue(value.equalsIgnoreCase(authorizationHeaders[0]));
-        assertFalse(Strings.isNullOrEmpty(authorizationHeaders[1]));
+        assertTrue(!Strings.isNullOrEmpty(authorizationHeaders[1]));
       } else {
         assertTrue(value.equalsIgnoreCase(clientFactory.headers.get(key)));
       }
@@ -309,11 +313,12 @@ public class TestAdhocFlightClient {
 
     @Override
     public void onHeadersReceived(CallHeaders incomingHeaders) {
-      incomingHeaders.keys().forEach( key ->
-          factory.headers.put(key, incomingHeaders.get(key)));
+
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {}
+    public void onCallCompleted(CallStatus status) {
+
+    }
   }
 }
