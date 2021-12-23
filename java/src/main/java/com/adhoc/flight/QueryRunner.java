@@ -319,13 +319,15 @@ public class QueryRunner {
           ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
           ARGUMENTS.disableServerVerification,
-          clientProperties);
+          clientProperties,
+          null);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.patOrAuthToken,
-          clientProperties);
+          clientProperties,
+          null);
     }
   }
 
