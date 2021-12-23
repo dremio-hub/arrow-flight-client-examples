@@ -39,6 +39,7 @@ import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,32 +47,38 @@ import org.junit.Test;
 import com.adhoc.flight.client.AdhocFlightClient;
 import com.google.common.base.Strings;
 
+/**
+ * Test AdhocFlightClient with a simple FlightServer.
+ */
 public class TestWithFlightServer {
   private static final String USERNAME = "dremio";
   private static final String PASSWORD = "dremio123";
   private static final String HOST = "localhost";
-  private static final int PORT = 10000;
-  private static final BufferAllocator ALLOCATOR = new RootAllocator();
-
-  private static final Map<String, String> EXPECTED_HEADERS_BASIC = new HashMap<String, String>() {
-      {
-        put("authorization", "Basic");
-        put("engine", "123");
-      }
+  private static final int PORT = 32011; // Avoiding 32010 since it may be used by local Dremio instance
+  private static final Map<String, String> EXPECTED_HEADERS_BASIC = new HashMap<String, String>() {{
+      put("authorization", "Basic");
+      put("engine", "123");
+    }
   };
 
+  private BufferAllocator allocator;
   private FlightServer server;
+  private AdhocFlightClient client;
   private HeaderServerMiddlewareFactory headerServerMiddlewareFactory;
 
   @Before
   public void setup() throws IOException {
+    allocator = new RootAllocator(Long.MAX_VALUE);
     server = getServer();
     server.start();
   }
 
   @After
   public void tearDown() throws Exception {
-    server.close();
+    allocator.getChildAllocators().forEach(BufferAllocator::close);
+    AutoCloseables.close(client, allocator);
+    client = null;
+    server = null;
   }
 
   @Test
@@ -81,7 +88,7 @@ public class TestWithFlightServer {
 
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
 
-    AdhocFlightClient.getBasicClient(ALLOCATOR, HOST, PORT, USERNAME, PASSWORD, null, callOption);
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption, null);
 
     final Map<String, String> receivedHeaders = headerServerMiddlewareFactory.headers;
     EXPECTED_HEADERS_BASIC.forEach( (key, value) -> {
@@ -102,7 +109,7 @@ public class TestWithFlightServer {
 
     headerServerMiddlewareFactory = new HeaderServerMiddlewareFactory();
 
-    server = FlightServer.builder(ALLOCATOR, location, producer)
+    server = FlightServer.builder(allocator, location, producer)
       .headerAuthenticator(new GeneratedBearerTokenAuthenticator(new BasicCallHeaderAuthenticator(this::authenticate)))
       .middleware(FlightServerMiddleware.Key.of("test"), headerServerMiddlewareFactory)
       .build();
@@ -141,7 +148,7 @@ public class TestWithFlightServer {
       this.factory = factory;
 
       incomingHeaders.keys().forEach( key -> {
-        factory.headers.put(key, incomingHeaders.get(key));
+        this.factory.headers.put(key, incomingHeaders.get(key));
       });
     }
 

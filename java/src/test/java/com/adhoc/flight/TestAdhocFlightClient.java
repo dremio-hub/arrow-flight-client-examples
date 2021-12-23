@@ -18,12 +18,13 @@
 package com.adhoc.flight;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -45,6 +46,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.adhoc.flight.client.AdhocFlightClient;
+import com.google.common.base.Strings;
 
 /**
  * Test Adhoc Flight Client.
@@ -69,9 +71,10 @@ public class TestAdhocFlightClient {
   public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
   public static final String DROP_TABLE = "drop table $scratch.simple_table";
   public static final Map<String, String> EXPECTED_HEADERS = new HashMap<String, String>() {{
-      put("authorization", "some-token");
+      put("authorization", "Bearer");
       put("engine", "123");
-    }};
+    }
+  };
 
   private AdhocFlightClient client;
   private BufferAllocator allocator;
@@ -90,7 +93,6 @@ public class TestAdhocFlightClient {
 
   @Rule
   public ExpectedException expectedEx = ExpectedException.none();
-
 
   /**
    * Creates a new FlightClient with no client properties set during authentication.
@@ -120,7 +122,7 @@ public class TestAdhocFlightClient {
                                        String patOrAuthToken,
                                        HeaderCallOption clientProperties) {
     client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
-        clientProperties);
+        clientProperties, null);
   }
 
   /**
@@ -139,7 +141,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties)
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null,
-      null, DISABLE_SERVER_VERIFICATION, clientProperties);
+      null, DISABLE_SERVER_VERIFICATION, clientProperties, null);
   }
 
   @Test
@@ -194,7 +196,7 @@ public class TestAdhocFlightClient {
 
     // Select
     final CallHeaders callHeaders = new FlightCallHeaders();
-    callHeaders.insert("schema", DEFAULT_SCHEMA_PATH);
+    callHeaders.insert(KEY_SCHEMA_PATH, DEFAULT_SCHEMA_PATH);
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
     client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption, null, false);
 
@@ -255,7 +257,7 @@ public class TestAdhocFlightClient {
   }
 
   @Test
-  public void testHeaderPassdown() {
+  public void testHeaderPassDown() {
     final CallHeaders callHeaders = new FlightCallHeaders();
     callHeaders.insert("engine", "123");
 
@@ -263,20 +265,27 @@ public class TestAdhocFlightClient {
 
     final HeaderClientMiddlewareFactory clientFactory = new HeaderClientMiddlewareFactory();
 
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption);
+    final List<FlightClientMiddleware.Factory> flightClientMiddlewareList = new ArrayList<>();
 
-    for (final Map.Entry<String, String> entry : EXPECTED_HEADERS.entrySet()) {
-      if (entry.getKey().equalsIgnoreCase("authorization")) {
-        assertNotNull(clientFactory.headers.get(entry.getKey()));
+    flightClientMiddlewareList.add(clientFactory);
+
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null,
+      callOption, flightClientMiddlewareList);
+
+    EXPECTED_HEADERS.forEach( (key, value) -> {
+      if (key.equalsIgnoreCase("authorization")) {
+        final String[] authorizationHeaders = clientFactory.headers.get(key).split(" ");
+
+        assertTrue(value.equalsIgnoreCase(authorizationHeaders[0]));
+        assertFalse(Strings.isNullOrEmpty(authorizationHeaders[1]));
       } else {
-        assertEquals(entry.getValue().toLowerCase(Locale.ROOT),
-            clientFactory.headers.get(entry.getKey()).toLowerCase(Locale.ROOT));
+        assertTrue(value.equalsIgnoreCase(clientFactory.headers.get(key)));
       }
-    }
+    });
   }
 
   static class HeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
-    Map<String, String> headers = null;
+    private Map<String, String> headers;
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
@@ -294,7 +303,8 @@ public class TestAdhocFlightClient {
 
     @Override
     public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-
+      outgoingHeaders.keys().forEach( key ->
+          factory.headers.put(key, outgoingHeaders.get(key)));
     }
 
     @Override
