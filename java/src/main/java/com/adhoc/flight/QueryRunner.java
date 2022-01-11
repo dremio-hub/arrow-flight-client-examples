@@ -83,7 +83,7 @@ public class QueryRunner {
     public String query = null;
 
     @Parameter(names = {"-binpath", "--saveBinaryPath"},
-        description = "path to save the SQL result binary to.")
+        description = "Path to save the SQL result binary to.")
     public String pathToSaveQueryResultsTo = null;
 
     @Parameter(names = {"-tls", "--tls"},
@@ -95,7 +95,7 @@ public class QueryRunner {
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
-        description = "Path to the jks keystore")
+        description = "Path to the jks keystore.")
     public String keystorePath = null;
 
     @Parameter(names = {"-kstpass", "--keyStorePassword"},
