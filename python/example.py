@@ -130,12 +130,12 @@ def parse_arguments():
     parser.add_argument('-certs', '--trustedCertificates', type=str,
       help='Path to trusted certificates for encrypted connection', required=False)
     parser.add_argument('-authToken', '--authToken', type=str, help="PAT or OAuth Token", required=False)
-    paser.add_argument('-sessionProperties', '--sessionProperties', nargs='*' action=KVParser)
+    parser.add_argument('-sessionProperties', '--sessionProperties', nargs='*' action=KVParser)
     return parser.parse_args()
 
 
 def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
-  tls, certs, disableServerVerification, authToken, clientProperties):
+  tls, certs, disableServerVerification, authToken, sessionProperties):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
