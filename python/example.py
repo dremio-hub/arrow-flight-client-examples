@@ -54,8 +54,8 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         auth_header_key = 'authorization'
         authorization_header = []
         for key in headers:
-          if key.lower() == auth_header_key:
-            authorization_header = headers.get(auth_header_key)
+            if key.lower() == auth_header_key:
+                authorization_header = headers.get(auth_header_key)
         self.factory.set_call_credential([
             b'authorization', authorization_header[0].encode("utf-8")])
 
@@ -93,7 +93,7 @@ class CookieMiddleware(flight.ClientMiddleware):
 
     def sending_headers(self):
         if self.factory.cookies:
-            cookie_string = '; '.join("{!s}={!r}".format(key,val) for (key,val) in k.items())
+            cookie_string = '; '.join("{!s}={!r}".format(key, val) for (key, val) in self.factory.cookies.items())
             return {'Cookie': cookie_string}
         return {}
 
@@ -185,10 +185,10 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
                 sys.exit()
 
         headers = session_properties
-        if headers is None:
+        if not headers:
             headers = []
 
-        if engine is not None:
+        if engine:
             headers.append((b'engine', engine.encode("utf-8")))
 
         # Two WLM settings can be provided upon initial authentication with the Dremio Server Flight Endpoint:
