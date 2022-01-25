@@ -59,6 +59,7 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         self.factory.set_call_credential([
             b'authorization', authorization_header[0].encode("utf-8")])
 
+
 class CookieMiddlewareFactory(flight.ClientMiddlewareFactory):
     """A factory that creates CookieMiddleware(s)."""
 
@@ -84,63 +85,83 @@ class CookieMiddleware(flight.ClientMiddleware):
         self.factory = factory
 
     def received_headers(self, headers):
-      for key in headers:
-        if key.lower() == 'set-cookie':
-          cookie = SimpleCookie()
-          cookie.load(headers.get(key))
-          self.factory.cookies.update(cookie.items)
+        for key in headers:
+            if key.lower() == 'set-cookie':
+                cookie = SimpleCookie()
+                cookie.load(headers.get(key))
+                self.factory.cookies.update(cookie.items)
 
     def sending_headers(self):
-      if self.factory.cookies:
-        cookie_string = '; '.join("{!s}={!r}".format(key,val) for (key,val) in k.items())
-        return {'Cookie': cookie_string}
-      return {}
+        if self.factory.cookies:
+            cookie_string = '; '.join("{!s}={!r}".format(key,val) for (key,val) in k.items())
+            return {'Cookie': cookie_string}
+        return {}
 
-class KVParser(argpase.Action)
-    def __call__( self , parser, namespace,
-                 values, option_string = None):
-        setattr(namespace, self.dest, dict())
+
+class KVParser(argparse.Action):
+    def __call__(self, parser, namespace,
+                 values, option_string=None):
+        setattr(namespace, self.dest, list())
           
         for value in values:
             # split it into key and value
             key, value = value.split('=')
-            # assign into dictionary
-            getattr(namespace, self.dest)[key] = value
+            # insert into list as key-value tuples
+            getattr(namespace, self.dest).append((key.encode("utf-8"), value.encode("utf-8")))
+
 
 def parse_arguments():
     """
     Parses the command-line arguments supplied to the script.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-host', '--hostname', type=str, help='Dremio co-ordinator hostname',
-      default='localhost')
-    parser.add_argument('-port', '--flightport', type=str, help='Dremio flight server port',
-      default='32010')
-    parser.add_argument('-user', '--username', type=str, help='Dremio username',
-      required=True)
-    parser.add_argument('-pass', '--password', type=str, help='Dremio password',
-      required=True)
-    parser.add_argument('-query', '--sqlquery', type=str, help='SQL query to test',
-      required=False)
-    parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection',
-      required=False, default=False, action='store_true')
-    parser.add_argument('-disableServerVerification', '--disableServerVerification', dest='disableServerVerification',
-                        help='Disable TLS server verification',
-                        required=False, default=False)
-    parser.add_argument('-certs', '--trustedCertificates', type=str,
-      help='Path to trusted certificates for encrypted connection', required=False)
-    parser.add_argument('-authToken', '--authToken', type=str, help="PAT or OAuth Token", required=False)
-    parser.add_argument('-sessionProperties', '--sessionProperties', nargs='*' action=KVParser)
+    parser.add_argument('-host', '--hostname', type=str,
+                        help='Dremio co-ordinator hostname. Defaults to \"localhost\".',
+                        default='localhost')
+    parser.add_argument('-port', '--flightport', dest='port', type=int,
+                        help='Dremio flight server port. Defaults to 32010.',
+                        default=32010)
+    parser.add_argument('-user', '--username', type=str, help='Dremio username. Defaults to \"dremio\".',
+                        default="dremio")
+    parser.add_argument('-pass', '--password', type=str, help='Dremio password. Defaults to \"dremio123\".',
+                        default="dremio123")
+    parser.add_argument('-query', '--sqlQuery', dest="query", type=str,
+                        help='SQL query to test. Defaults to \"SELECT 1\"',
+                        default="SELECT 1")
+    parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection. Defaults to False.',
+                        default=False, action='store_true')
+    parser.add_argument('-dsv', '--disableServerVerification', dest='disable_server_verification', type=bool,
+                        help='Disable TLS server verification. Defaults to False.',
+                        default=False)
+    parser.add_argument('-certs', '--trustedCertificates', dest='trusted_certificates', type=str,
+                        help='Path to trusted certificates for encrypted connection.', required=False)
+    parser.add_argument('-pat, --personalAccessToken, -authToken', '--authToken', dest="pat_or_auth_token", type=str,
+                        help="Either a Personal Access Token or an OAuth2 Token.",
+                        required=False)
+    parser.add_argument('-sessionProperties', '--sessionProperties', dest='session_properties',
+                        help="Key value pairs of SessionProperty, example: -session_properties key1=value1 key2=value2",
+                        required=False, nargs='*', action=KVParser)
+    parser.add_argument('-engine', '--engine', type=str, help='The specific engine to run against.',
+                        required=False)
+
+    # TODO: missing wrt to Java client:
+    """
+        --saveBinaryPath
+        --keyStorePath
+        --keyStorePassword
+        --runDemo -> running the client as is will run as demo
+    """
+
     return parser.parse_args()
 
 
-def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, password, sqlquery,
-  tls, certs, disableServerVerification, authToken, sessionProperties):
+def connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
+                                             tls, certs, disable_server_verification, pat_or_auth_token,
+                                             engine, session_properties):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
     """
-
     try:
         # Default to use an unencrypted TCP connection.
         scheme = "grpc+tcp"
@@ -155,48 +176,54 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
                 # TLS certificates are provided in a list of connection arguments.
                 with open(certs, "rb") as root_certs:
                     connection_args["tls_root_certs"] = root_certs.read()
-            elif disableServerVerification:
+            elif disable_server_verification:
                 # Connect to the server endpoint with server verification disabled.
                 print('[INFO] Disable TLS server verification.')
-                connection_args['disable_server_verification'] = disableServerVerification
+                connection_args['disable_server_verification'] = disable_server_verification
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
                 sys.exit()
 
-        # Two WLM settings can be provided upon initial authentication
-        # with the Dremio Server Flight Endpoint:
-        # - routing-tag
-        # - routing queue
-        headers = sessionProperties
-        headers.append([
-            (b'routing-tag', b'test-routing-tag'),
-            (b'routing-queue', b'Low Cost User Queries')])
+        headers = session_properties
+        if headers is None:
+            headers = []
+
+        if engine is not None:
+            headers.append((b'engine', engine.encode("utf-8")))
+
+        # Two WLM settings can be provided upon initial authentication with the Dremio Server Flight Endpoint:
+        # routing_tag
+        # routing_queue
+        headers.append((b'routing_tag', b'test-routing-tag'))
+        headers.append((b'routing_queue', b'Low Cost User Queries'))
 
         client_cookie_middleware = CookieMiddlewareFactory()
 
         if username and password:
             client_auth_middleware = DremioClientAuthMiddlewareFactory()
-            client = flight.FlightClient("{}://{}:{}".format(scheme, hostname, flightport),
-              middleware=[client_auth_middleware, client_cookie_middleware], **connection_args)
+            client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
+                                         middleware=[client_auth_middleware, client_cookie_middleware],
+                                         **connection_args)
 
             # Authenticate with the server endpoint.
-            bearer_token = client.authenticate_basic_token(username, password, flight.FlightCallOptions(headers=headers))
+            bearer_token = client.authenticate_basic_token(username, password,
+                                                           flight.FlightCallOptions(headers=headers))
             headers = [bearer_token]
             print('[INFO] Authentication was successful')
-        elif authToken:
-            headers.append([b'authorization', b'Bearer ' + authToken])
-            client = flight.FlightClient("{}://{}:{}".format(scheme, hostname, flightport),
-              middleware=[client_cookie_middleware], **connection_args)
+        elif pat_or_auth_token:
+            headers.append([b'authorization', b'Bearer ' + pat_or_auth_token])
+            client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
+                                         middleware=[client_cookie_middleware], **connection_args)
             
             print('[INFO] Authentication skipped until first request')
         else:
             print('[ERROR] Username/password or Auth token must be supplied.')
             sys.exit()
 
-        if sqlquery:
+        if query:
             # Construct FlightDescriptor for the query result set.
-            flight_desc = flight.FlightDescriptor.for_command(sqlquery)
-            print('[INFO] Query: ', sqlquery)
+            flight_desc = flight.FlightDescriptor.for_command(query)
+            print('[INFO] Query: ', query)
 
             # In addition to the bearer token, a query context can also
             # be provided as an entry of FlightCallOptions.
@@ -213,8 +240,7 @@ def connect_to_dremio_flight_server_endpoint(hostname, flightport, username, pas
 
             # Get the FlightInfo message to retrieve the Ticket corresponding
             # to the query result set.
-            flight_info = client.get_flight_info(flight.FlightDescriptor.for_command(sqlquery),
-                options)
+            flight_info = client.get_flight_info(flight.FlightDescriptor.for_command(query), options)
             print('[INFO] GetFlightInfo was successful')
             print('[INFO] Ticket: ', flight_info.endpoints[0].ticket)
 
@@ -232,6 +258,8 @@ if __name__ == "__main__":
     # Parse the command line arguments.
     args = parse_arguments()
     # Connect to Dremio Arrow Flight server endpoint.
-    connect_to_dremio_flight_server_endpoint(args.hostname, args.flightport, args.username,
-      args.password, args.sqlquery, args.tls, args.trustedCertificates, args.disableServerVerification)
-      args.authToken, args.sessionProperties)
+    connect_to_dremio_flight_server_endpoint(args.hostname, args.port, args.username, args.password,
+                                             args.query, args.tls, args.trusted_certificates,
+                                             args.disable_server_verification, args.pat_or_auth_token,
+                                             args.engine, args.session_properties)
+
