@@ -98,6 +98,20 @@ class CookieMiddleware(flight.ClientMiddleware):
         return {}
 
 
+class DremioClientAuthHandler(flight.ClientAuthHandler):
+    def __init__(self, auth_token):
+        super().__init__()
+        self.auth_token = auth_token
+        self.token = b''
+
+    def authenticate(self, outgoing, incoming):
+        outgoing.write(self.auth_token.encode('utf-8'))
+        self.token = incoming.read()
+
+    def get_token(self):
+        return self.token
+
+
 class KVParser(argparse.Action):
     def __call__(self, parser, namespace,
                  values, option_string=None):
@@ -199,7 +213,18 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
 
         client_cookie_middleware = CookieMiddlewareFactory()
 
-        if username and password:
+        if pat_or_auth_token:
+            client_auth_middleware = DremioClientAuthMiddlewareFactory()
+            client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
+                                         middleware=[client_auth_middleware, client_cookie_middleware], **connection_args)
+
+            # print('[INFO] Authentication skipped until first request')
+
+            client_auth_handler = DremioClientAuthHandler(pat_or_auth_token)
+            # TODO: fails below
+            client.authenticate(client_auth_handler, flight.FlightCallOptions(headers=headers))
+
+        elif username and password:
             client_auth_middleware = DremioClientAuthMiddlewareFactory()
             client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
                                          middleware=[client_auth_middleware, client_cookie_middleware],
@@ -210,14 +235,8 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
                                                            flight.FlightCallOptions(headers=headers))
             headers = [bearer_token]
             print('[INFO] Authentication was successful')
-        elif pat_or_auth_token:
-            headers.append([b'authorization', b'Bearer ' + pat_or_auth_token])
-            client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
-                                         middleware=[client_cookie_middleware], **connection_args)
-            
-            print('[INFO] Authentication skipped until first request')
         else:
-            print('[ERROR] Username/password or Auth token must be supplied.')
+            print('[ERROR] Username/password or PAT/Auth token must be supplied.')
             sys.exit()
 
         if query:
