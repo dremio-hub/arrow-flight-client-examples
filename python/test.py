@@ -18,12 +18,18 @@ import pytest
 
 from example import connect_to_dremio_flight_server_endpoint
 
+host = "localhost"
+port = 32010
+username = "dremio"
+password = "dremio123"
+
 def test_basic_auth():
     """
     Test connection to Dremio.
     """
-    connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "dremio", "dremio123", False, False, False, False)
+    connect_to_dremio_flight_server_endpoint(host, port, username, password,
+                                             False, False, False, False, False, False, False)
+
 
 def test_simple_query():
     """
@@ -31,8 +37,9 @@ def test_simple_query():
     Then test a simple VALUES query.
     """
     query = "select * from (VALUES(1,2,3))"
-    connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "dremio", "dremio123", query, False, False, False)
+    connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
+                                             False, False, False, False, False, False)
+
 
 @pytest.mark.skip(reason = "Need to run flight in the encrypted mode")
 def test_disable_server_verification():
@@ -40,8 +47,8 @@ def test_disable_server_verification():
     Then test a simple VALUES query.
     """
     query = "select * from (VALUES(1,2,3))"
-    connect_to_dremio_flight_server_endpoint("localhost",
-                                             "32010", "dremio", "dremio123", query, True, False, True)
+    connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
+                                             True, False, True, False, False, False)
 
 
 def test_bad_hostname():
@@ -49,29 +56,32 @@ def test_bad_hostname():
     Test connection with an incorrect server endpoint hostname.
     """
     pytest.xfail("Bad hostname.")
-    connect_to_dremio_flight_server_endpoint("badHostNamE",
-      "32010", "dremio", "dremio123", False, False, False)
+    connect_to_dremio_flight_server_endpoint("badHostNamE", port, username, password,
+                                             False, False, False, False, False, False)
+
 
 def test_bad_port():
     """
     Test connection with an incorrect server endpoint port.
     """
     pytest.xfail("Bad port.")
-    connect_to_dremio_flight_server_endpoint("localhost",
-      "12345", "dremio", "dremio123", False, False, False)
+    connect_to_dremio_flight_server_endpoint(host, "12345", username, password,
+                                             False, False, False, False, False, False)
+
 
 def test_bad_password():
     """
     Test connection with an invalid password.
     """
     pytest.xfail("Bad port.")
-    connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "dremio", "badPassword", False, False, False)
+    connect_to_dremio_flight_server_endpoint(host, port, username, "badPassword",
+                                             False, False, False, False, False, False)
 
 def test_non_existent_user():
     """
     Test connection with an invalid username.
     """
     pytest.xfail("Non-existent user.")
-    connect_to_dremio_flight_server_endpoint("localhost",
-      "32010", "noSuchUser", "dremio123", False, False, False)
+    connect_to_dremio_flight_server_endpoint(host, port, "noSuchUser", password,
+                                             False, False, False, False, False, False)
+
