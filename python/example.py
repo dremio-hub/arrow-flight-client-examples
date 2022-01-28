@@ -56,8 +56,10 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         for key in headers:
             if key.lower() == auth_header_key:
                 authorization_header = headers.get(auth_header_key)
+        if not authorization_header:
+            raise Exception('Did not receive authorization header back from server.')
         self.factory.set_call_credential([
-            b'authorization', authorization_header[0].encode("utf-8")])
+            b'authorization', authorization_header[0].encode('utf-8')])
 
 
 class CookieMiddlewareFactory(flight.ClientMiddlewareFactory):
@@ -88,28 +90,16 @@ class CookieMiddleware(flight.ClientMiddleware):
         for key in headers:
             if key.lower() == 'set-cookie':
                 cookie = SimpleCookie()
-                cookie.load(headers.get(key))
-                self.factory.cookies.update(cookie.items)
+                for item in headers.get(key):
+                    cookie.load(item)
+
+                self.factory.cookies.update(cookie.items())
 
     def sending_headers(self):
         if self.factory.cookies:
-            cookie_string = '; '.join("{!s}={!r}".format(key, val) for (key, val) in self.factory.cookies.items())
-            return {'Cookie': cookie_string}
+            cookie_string = '; '.join("{!s}={!s}".format(key, val.value) for (key, val) in self.factory.cookies.items())
+            return {b'cookie': cookie_string.encode('utf-8')}
         return {}
-
-
-class DremioClientAuthHandler(flight.ClientAuthHandler):
-    def __init__(self, auth_token):
-        super().__init__()
-        self.auth_token = auth_token
-        self.token = b''
-
-    def authenticate(self, outgoing, incoming):
-        outgoing.write(self.auth_token.encode('utf-8'))
-        self.token = incoming.read()
-
-    def get_token(self):
-        return self.token
 
 
 class KVParser(argparse.Action):
@@ -121,7 +111,7 @@ class KVParser(argparse.Action):
             # split it into key and value
             key, value = value.split('=')
             # insert into list as key-value tuples
-            getattr(namespace, self.dest).append((key.encode("utf-8"), value.encode("utf-8")))
+            getattr(namespace, self.dest).append((key.encode('utf-8'), value.encode('utf-8')))
 
 
 def parse_arguments():
@@ -203,7 +193,7 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
             headers = []
 
         if engine:
-            headers.append((b'engine', engine.encode("utf-8")))
+            headers.append((b'engine', engine.encode('utf-8')))
 
         # Two WLM settings can be provided upon initial authentication with the Dremio Server Flight Endpoint:
         # routing_tag
@@ -214,15 +204,11 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
         client_cookie_middleware = CookieMiddlewareFactory()
 
         if pat_or_auth_token:
-            client_auth_middleware = DremioClientAuthMiddlewareFactory()
             client = flight.FlightClient("{}://{}:{}".format(scheme, host, port),
-                                         middleware=[client_auth_middleware, client_cookie_middleware], **connection_args)
+                                         middleware=[client_cookie_middleware], **connection_args)
 
-            # print('[INFO] Authentication skipped until first request')
-
-            client_auth_handler = DremioClientAuthHandler(pat_or_auth_token)
-            # TODO: fails below
-            client.authenticate(client_auth_handler, flight.FlightCallOptions(headers=headers))
+            headers.append((b'authorization', "Bearer {}".format(pat_or_auth_token).encode('utf-8')))
+            print('[INFO] Authentication skipped until first request')
 
         elif username and password:
             client_auth_middleware = DremioClientAuthMiddlewareFactory()
