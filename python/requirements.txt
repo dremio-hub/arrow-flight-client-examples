@@ -1,4 +1,5 @@
 ###### Requirements without version specifiers ######
+certifi
 pandas
 
 ###### Requirements with version specifiers ######

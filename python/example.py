@@ -14,10 +14,11 @@
   limitations under the License.
 """
 import argparse
+import certifi
 import sys
 
-from pyarrow import flight
 from http.cookies import SimpleCookie
+from pyarrow import flight
 
 
 class DremioClientAuthMiddlewareFactory(flight.ClientMiddlewareFactory):
@@ -138,7 +139,8 @@ def parse_arguments():
                         help='Disable TLS server verification. Defaults to False.',
                         default=False)
     parser.add_argument('-certs', '--trustedCertificates', dest='trusted_certificates', type=str,
-                        help='Path to trusted certificates for encrypted connection.', required=False)
+                        help='Path to trusted certificates for encrypted connection. Defaults to system certificates.',
+                        default=certifi.where())
     parser.add_argument('-pat, --personalAccessToken, -authToken', '--authToken', dest="pat_or_auth_token", type=str,
                         help="Either a Personal Access Token or an OAuth2 Token.",
                         required=False)
