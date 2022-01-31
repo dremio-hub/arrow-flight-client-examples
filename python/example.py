@@ -130,9 +130,12 @@ def parse_arguments():
                         default="dremio")
     parser.add_argument('-pass', '--password', type=str, help='Dremio password. Defaults to \"dremio123\".',
                         default="dremio123")
+    parser.add_argument('-pat, --personalAccessToken, -authToken', '--authToken', dest="pat_or_auth_token", type=str,
+                        help="Either a Personal Access Token or an OAuth2 Token.",
+                        required=False)
     parser.add_argument('-query', '--sqlQuery', dest="query", type=str,
-                        help='SQL query to test. Defaults to \"SELECT 1\"',
-                        default="SELECT 1")
+                        help='SQL query to test',
+                        required=True)
     parser.add_argument('-tls', '--tls', dest='tls', help='Enable encrypted connection. Defaults to False.',
                         default=False, action='store_true')
     parser.add_argument('-dsv', '--disableServerVerification', dest='disable_server_verification', type=bool,
@@ -141,22 +144,11 @@ def parse_arguments():
     parser.add_argument('-certs', '--trustedCertificates', dest='trusted_certificates', type=str,
                         help='Path to trusted certificates for encrypted connection. Defaults to system certificates.',
                         default=certifi.where())
-    parser.add_argument('-pat, --personalAccessToken, -authToken', '--authToken', dest="pat_or_auth_token", type=str,
-                        help="Either a Personal Access Token or an OAuth2 Token.",
-                        required=False)
     parser.add_argument('-sessionProperties', '--sessionProperties', dest='session_properties',
                         help="Key value pairs of SessionProperty, example: -session_properties key1=value1 key2=value2",
                         required=False, nargs='*', action=KVParser)
     parser.add_argument('-engine', '--engine', type=str, help='The specific engine to run against.',
                         required=False)
-
-    # TODO: missing wrt to Java client:
-    """
-        --saveBinaryPath
-        --keyStorePath
-        --keyStorePassword
-        --runDemo -> running the client as is will run as demo
-    """
 
     return parser.parse_args()
 
