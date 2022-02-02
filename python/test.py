@@ -23,6 +23,7 @@ port = 32010
 username = "dremio"
 password = "dremio123"
 
+
 def test_basic_auth():
     """
     Test connection to Dremio.
@@ -41,7 +42,7 @@ def test_simple_query():
                                              False, False, False, False, False, False)
 
 
-@pytest.mark.skip(reason = "Need to run flight in the encrypted mode")
+@pytest.mark.skip(reason="Need to run flight in the encrypted mode")
 def test_disable_server_verification():
     """ Test connection to Dremio on a encrypted server using disable server verification options.
     Then test a simple VALUES query.
@@ -57,7 +58,7 @@ def test_bad_hostname():
     """
     pytest.xfail("Bad hostname.")
     connect_to_dremio_flight_server_endpoint("badHostNamE", port, username, password,
-                                             False, False, False, False, False, False)
+                                             False, False, False, False, False, False, False)
 
 
 def test_bad_port():
@@ -66,7 +67,7 @@ def test_bad_port():
     """
     pytest.xfail("Bad port.")
     connect_to_dremio_flight_server_endpoint(host, "12345", username, password,
-                                             False, False, False, False, False, False)
+                                             False, False, False, False, False, False, False)
 
 
 def test_bad_password():
@@ -75,7 +76,8 @@ def test_bad_password():
     """
     pytest.xfail("Bad port.")
     connect_to_dremio_flight_server_endpoint(host, port, username, "badPassword",
-                                             False, False, False, False, False, False)
+                                             False, False, False, False, False, False, False)
+
 
 def test_non_existent_user():
     """
@@ -83,5 +85,5 @@ def test_non_existent_user():
     """
     pytest.xfail("Non-existent user.")
     connect_to_dremio_flight_server_endpoint(host, port, "noSuchUser", password,
-                                             False, False, False, False, False, False)
+                                             False, False, False, False, False, False, False)
 
