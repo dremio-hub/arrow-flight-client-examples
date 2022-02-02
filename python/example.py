@@ -130,7 +130,7 @@ def parse_arguments():
                         default="dremio")
     parser.add_argument('-pass', '--password', type=str, help='Dremio password. Defaults to \"dremio123\".',
                         default="dremio123")
-    parser.add_argument('-pat, --personalAccessToken, -authToken', '--authToken', dest="pat_or_auth_token", type=str,
+    parser.add_argument('-pat', '--personalAccessToken', '-authToken', '--authToken', dest='pat_or_auth_token', type=str,
                         help="Either a Personal Access Token or an OAuth2 Token.",
                         required=False)
     parser.add_argument('-query', '--sqlQuery', dest="query", type=str,

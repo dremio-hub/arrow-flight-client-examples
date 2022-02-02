@@ -1,7 +1,7 @@
 # Python Arrow Flight Client Application Example
 ![Build Status](https://github.com/dremio-hub/arrow-flight-client-examples/workflows/python-build/badge.svg)
 
-This lightweight Python client application connects to the Dremio Arrow Flight server endpoint. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. 
+This lightweight Python client application connects to the Dremio Arrow Flight server endpoint. Developers can use token based or regular user credentials (username/password) for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client.
 Moreover, the tls option can be provided to establish an encrypted connection.
 
 ### Instructions on using this Python sample application
@@ -12,11 +12,11 @@ Moreover, the tls option can be provided to establish an encrypted connection.
 - Alternatively, install dependencies using `pip` 
   - `pip3 install -r requirements.txt`
 - Run the Python sample application with a local instance of Dremio (with default parameters):
-  - `python3 example.py -query 'SELECT 1''`
+  - `python3 example.py -query 'SELECT 1'`
 
 ```
 usage: example.py [-h] [-host HOSTNAME] [-port PORT] [-user USERNAME] [-pass PASSWORD]
-                  [-pat, --personalAccessToken, -authToken PAT_OR_AUTH_TOKEN] [-query QUERY] [-tls] [-dsv DISABLE_SERVER_VERIFICATION]
+                  [-pat, -authToken PAT_OR_AUTH_TOKEN] [-query QUERY] [-tls] [-dsv DISABLE_SERVER_VERIFICATION]
                   [-certs TRUSTED_CERTIFICATES] [-sessionProperties [SESSION_PROPERTIES ...]] [-engine ENGINE]
 
 optional arguments:
@@ -29,7 +29,7 @@ optional arguments:
                         Dremio username. Defaults to "dremio".
   -pass PASSWORD, --password PASSWORD
                         Dremio password. Defaults to "dremio123".
-  -pat, --personalAccessToken, -authToken PAT_OR_AUTH_TOKEN, --authToken PAT_OR_AUTH_TOKEN
+  -pat PAT_OR_AUTH_TOKEN, --personalAccessToken PAT_OR_AUTH_TOKEN, -authToken PAT_OR_AUTH_TOKEN, --authToken PAT_OR_AUTH_TOKEN
                         Either a Personal Access Token or an OAuth2 Token.
   -query QUERY, --sqlQuery QUERY
                         SQL query to test.
