@@ -213,8 +213,8 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
             # Authenticate with the server endpoint.
             bearer_token = client.authenticate_basic_token(username, password,
                                                            flight.FlightCallOptions(headers=headers))
-            headers = [bearer_token]
             print('[INFO] Authentication was successful')
+            headers.append(bearer_token)
         else:
             print('[ERROR] Username/password or PAT/Auth token must be supplied.')
             sys.exit()
