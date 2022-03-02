@@ -144,8 +144,8 @@ def parse_arguments():
     parser.add_argument('-certs', '--trustedCertificates', dest='trusted_certificates', type=str,
                         help='Path to trusted certificates for encrypted connection. Defaults to system certificates.',
                         default=certifi.where())
-    parser.add_argument('-sessionProperties', '--sessionProperties', dest='session_properties',
-                        help="Key value pairs of SessionProperty, example: -session_properties key1=value1 key2=value2",
+    parser.add_argument('-sp', '--sessionProperty', dest='session_properties',
+                        help="Key value pairs of SessionProperty, example: -sp schema=\'Samples.\"samples.dremio.com\"' -sp key=value",
                         required=False, nargs='*', action=KVParser)
     parser.add_argument('-engine', '--engine', type=str, help='The specific engine to run against.',
                         required=False)
@@ -187,7 +187,7 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
             headers = []
 
         if engine:
-            headers.append((b'engine', engine.encode('utf-8')))
+            headers.append((b'routing_engine', engine.encode('utf-8')))
 
         # Two WLM settings can be provided upon initial authentication with the Dremio Server Flight Endpoint:
         # routing_tag

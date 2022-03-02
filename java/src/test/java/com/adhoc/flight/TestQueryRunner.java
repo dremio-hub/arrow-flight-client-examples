@@ -28,18 +28,18 @@ import com.beust.jcommander.Parameter;
  * Tests for {@link QueryRunner}. Checking parsing functions.
  */
 public class TestQueryRunner {
-  @Parameter(names = "--sessionProperties", variableArity = true, listConverter = SessionPropertyConverter.class)
+  @Parameter(names = "--sessionProperty", variableArity = true, listConverter = SessionPropertyConverter.class)
   List<SessionProperty> sessionProperties;
 
   @Test
   public void testParseSessionProperties() {
     JCommander jc = new JCommander(this);
-    jc.parse("--sessionProperties", "key1:value1", "key2:value2");
+    jc.parse("--sessionProperty", "schema=\'Samples.\"samples.dremio.com\"\'", "key=value");
     Assert.assertNotNull(sessionProperties);
     Assert.assertEquals(2, sessionProperties.size());
-    Assert.assertEquals("key1", sessionProperties.get(0).getKey());
-    Assert.assertEquals("value1", sessionProperties.get(0).getValue());
-    Assert.assertEquals("key2", sessionProperties.get(1).getKey());
-    Assert.assertEquals("value2", sessionProperties.get(1).getValue());
+    Assert.assertEquals("schema", sessionProperties.get(0).getKey());
+    Assert.assertEquals("\'Samples.\"samples.dremio.com\"\'", sessionProperties.get(0).getValue());
+    Assert.assertEquals("key", sessionProperties.get(1).getKey());
+    Assert.assertEquals("value", sessionProperties.get(1).getValue());
   }
 }
