@@ -17,6 +17,9 @@
 
 package com.adhoc.flight;
 
+import static com.adhoc.flight.QueryRunner.KEY_ROUTING_QUEUE;
+import static com.adhoc.flight.QueryRunner.KEY_ROUTING_TAG;
+import static com.adhoc.flight.QueryRunner.KEY_SCHEMA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,9 +62,6 @@ public class TestAdhocFlightClient {
   public static final String SIMPLE_QUERY = "select * from (VALUES(1,2,3),(4,5,6))";
   public static final boolean DISABLE_SERVER_VERIFICATION = true;
 
-  public static final String KEY_SCHEMA_PATH = "SCHEMA";
-  public static final String KEY_ROUTING_TAG = "ROUTING_TAG";
-  public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
   public static final String DEFAULT_SCHEMA_PATH = "$scratch";
   public static final String DEFAULT_ROUTING_TAG = "test-routing-tag";
   public static final String DEFAULT_ROUTING_QUEUE = "Low Cost User Queries";
@@ -168,7 +168,6 @@ public class TestAdhocFlightClient {
   public void testSimpleQueryWithClientPropertiesDuringAuth() throws Exception {
     // Create HeaderCallOption to transport Dremio client properties.
     final CallHeaders callHeaders = new FlightCallHeaders();
-    callHeaders.insert(KEY_SCHEMA_PATH, DEFAULT_SCHEMA_PATH);
     callHeaders.insert(KEY_ROUTING_TAG, DEFAULT_ROUTING_TAG);
     callHeaders.insert(KEY_ROUTING_QUEUE, DEFAULT_ROUTING_QUEUE);
     final HeaderCallOption clientProperties = new HeaderCallOption(callHeaders);
@@ -177,10 +176,10 @@ public class TestAdhocFlightClient {
     createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null, clientProperties);
 
     // Create table
-    client.runQuery(CREATE_TABLE_NO_SCHEMA, null, null, false);
+    client.runQuery(CREATE_TABLE, null, null, false);
 
     // Select
-    client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null, null, false);
+    client.runQuery(SIMPLE_QUERY, null, null, false);
 
     // Drop table
     client.runQuery(DROP_TABLE, null, null, false);
@@ -188,17 +187,17 @@ public class TestAdhocFlightClient {
 
   @Test
   public void testSimpleQueryWithDefaultSchemaPath() throws Exception {
+    final CallHeaders callHeaders = new FlightCallHeaders();
+    callHeaders.insert(KEY_SCHEMA, DEFAULT_SCHEMA_PATH);
+    final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
     // Create FlightClient connecting to Dremio.
     createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null);
 
     // Create table
-    client.runQuery(CREATE_TABLE, null, null, false);
+    client.runQuery(CREATE_TABLE, callOption, null, false);
 
     // Select
-    final CallHeaders callHeaders = new FlightCallHeaders();
-    callHeaders.insert(KEY_SCHEMA_PATH, DEFAULT_SCHEMA_PATH);
-    final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
-    client.runQuery(SIMPLE_QUERY_NO_SCHEMA, callOption, null, false);
+    client.runQuery(SIMPLE_QUERY_NO_SCHEMA, null, null, false);
 
     // Drop table
     client.runQuery(DROP_TABLE, null, null, false);

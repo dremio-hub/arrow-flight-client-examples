@@ -45,13 +45,23 @@ public class QueryRunner {
   private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
   private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
-  private static final String CREATE_DEMO_TABLE =
-      "CREATE TABLE $scratch.dremio_flight_demo_table as select * from (VALUES(1,2,3),(4,5,6))";
-  private static final String DROP_DEMO_TABLE = "DROP TABLE $scratch.dremio_flight_demo_table";
-  private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
+  private static final String DEMO_TABLE = "dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
+  private static final String DEMO_CREATE_TABLE =
+      String.format("CREATE TABLE %s.%s as select * from (VALUES(1,2,3),(4,5,6))",
+        DEMO_TABLE_SCHEMA, DEMO_TABLE);
+  private static final String DEMO_DROP_TABLE = String.format("DROP TABLE %s.%s",
+      DEMO_TABLE_SCHEMA, DEMO_TABLE);
+  private static final String DEMO_SELECT_TABLE = String.format("SELECT * FROM %s", DEMO_TABLE);
+  private static final String DEMO_ROUTING_TAG = "test-routing-tag";
+  private static final String DEMO_ROUTING_QUEUE = "Low Cost User Queries";
   private static final String DEMO_USERNAME = "dremio";
   private static final String DEMO_PASSWORD = "dremio123";
+
+  public static final String KEY_SCHEMA = "SCHEMA";
+  public static final String KEY_ROUTING_TAG = "ROUTING_TAG";
+  public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
+  public static final String KEY_ROUTING_ENGINE = "ROUTING_ENGINE";
 
   /**
    * Class that holds all the command line arguments that can be used to run the
@@ -110,8 +120,9 @@ public class QueryRunner {
         description = "The specific engine to run against.")
     public String engine;
 
-    @Parameter(names = {"-sessionProperties", "--sessionProperties"},
-        description = "Key value pairs of SessionProperty, example: --sessionProperties key1:value1 key2:value2",
+    @Parameter(names = {"-sp", "--sessionProperty"},
+        description = "Key value pairs of SessionProperty, " +
+          "example: -sp schema='Samples.\"samples.dremio.com\"' -sp key=value",
         listConverter = SessionPropertyConverter.class)
     public List<SessionProperty> sessionProperties = new ArrayList<>();
 
@@ -143,13 +154,15 @@ public class QueryRunner {
     System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
         "authorization header authentication.");
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
-    System.out.println("[INFO] Setting client property: ROUTING_TAG => test-routing-tag");
-    System.out.println("[INFO] Setting client property: ROUTING_QUEUE => Low Cost User Queries");
+    System.out.println(String.format("[INFO] Setting client property: %s => %s",
+        KEY_ROUTING_TAG, DEMO_ROUTING_TAG));
+    System.out.println(String.format("[INFO] Setting client property: %s => %s",
+        KEY_ROUTING_QUEUE, DEMO_ROUTING_QUEUE));
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
-        "ROUTING_TAG", "test-routing-tag",
-        "ROUTING_QUEUE", "Low Cost User Queries");
+        KEY_ROUTING_TAG, DEMO_ROUTING_TAG,
+        KEY_ROUTING_QUEUE, DEMO_ROUTING_QUEUE);
     final HeaderCallOption routingCallOption = createClientProperties(properties);
 
     // Authenticates FlightClient with routing properties.
@@ -159,31 +172,34 @@ public class QueryRunner {
       /**
        * Create demo table in $scratch
        */
-      System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
-      client.runQuery(CREATE_DEMO_TABLE, null, null, true);
-      System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
+      // Set default schema path to "$scratch" for the next and following FlightRPC requests.
+      System.out.println(String.format("[INFO] Setting client property: %s => %s",
+          KEY_SCHEMA, DEMO_TABLE_SCHEMA));
+      final Map<String, String> schemaProperty = ImmutableMap.of(
+          KEY_SCHEMA, DEMO_TABLE_SCHEMA);
+      final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
+      System.out.println(String.format("[INFO] [STEP 2]: Create a test table in %s", DEMO_TABLE_SCHEMA));
+      client.runQuery(DEMO_CREATE_TABLE, schemaCallOption, null, true);
+      System.out.println(String.format("[INFO] Created %s.%s in %s successfully.",
+          DEMO_TABLE_SCHEMA, DEMO_TABLE, DEMO_TABLE_SCHEMA));
 
       /**
        * Query demo table
        */
-      System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
-      System.out.println("[INFO] Setting client property: schema => $scratch");
-      QueryUtils.printRunningQuery(SELECT_DEMO_TABLE);
+      System.out.println(String.format("[INFO] [STEP 3]: Query demo table %s.%s",
+          DEMO_TABLE_SCHEMA, DEMO_TABLE));
+      QueryUtils.printRunningQuery(DEMO_SELECT_TABLE);
 
-      // Set default schema path to "$scratch" for the next FlightRPC request.
-      final Map<String, String> schemaProperty = ImmutableMap.of(
-          "SCHEMA", DEMO_TABLE_SCHEMA);
-      final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
       // Run query "select * from dremio_flight_demo_table" without schema path.
-      client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, null, true);
+      client.runQuery(DEMO_SELECT_TABLE, schemaCallOption, null, true);
       System.out.println();
 
       /**
        * Drop Demo Table
        */
       System.out.println("[INFO] [STEP 5]: Drop demo table.");
-      client.runQuery(DROP_DEMO_TABLE, schemaCallOption, null, true);
-      System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
+      client.runQuery(DEMO_DROP_TABLE, schemaCallOption, null, true);
+      System.out.println(String.format("[INFO] Dropped %s.%s successfully", KEY_SCHEMA, DEMO_TABLE_SCHEMA));
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
       ex.printStackTrace();
@@ -217,7 +233,7 @@ public class QueryRunner {
     });
 
     if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
-      sessionPropertiesMap.put("engine", ARGUMENTS.engine);
+      sessionPropertiesMap.put(KEY_ROUTING_ENGINE, ARGUMENTS.engine);
     }
 
     final HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
@@ -235,9 +251,9 @@ public class QueryRunner {
       QueryUtils.printRunningQuery(ARGUMENTS.query);
 
       if (pathToSaveQueryResultsTo != null) {
-        client.runQuery(ARGUMENTS.query, null, new File(pathToSaveQueryResultsTo), true);
+        client.runQuery(ARGUMENTS.query, clientProperties, new File(pathToSaveQueryResultsTo), true);
       } else {
-        client.runQuery(ARGUMENTS.query, null, null, true);
+        client.runQuery(ARGUMENTS.query, clientProperties, null, true);
       }
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());

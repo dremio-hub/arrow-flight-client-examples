@@ -24,7 +24,7 @@ import com.beust.jcommander.IStringConverter;
 public class SessionPropertyConverter implements IStringConverter<SessionProperty> {
   @Override
   public SessionProperty convert(String keyValuePair) {
-    final String[] parts = keyValuePair.split(":");
+    final String[] parts = keyValuePair.split("=");
 
     final String key = parts[0].trim();
     final String value = parts[1].trim();
