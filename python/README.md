@@ -43,3 +43,40 @@ optional arguments:
   -engine ENGINE, --engine ENGINE
                         The specific engine to run against.
 ```
+
+### Getting Started
+
+Get started with your first query to Dremio Cloud.
+
+* The following example requires you to create a [Personal Access Token](https://docs.dremio.com/software/security/personal-access-tokens/) in Dremio. Replace ```<INSERT PAT HERE>``` in the example below with your actual PAT token.
+* You may need to wait for a Dremio engine to start up if no Dremio engine for your Organization is running.
+
+This example queries the Dremio Sample dataset ```NYC-taxi-trips``` and returns the first 10 values.
+
+```python3 example.py -host data.dremio.cloud -port 443 -pat '<INSERT PAT HERE>' -tls -query 'SELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10'```
+
+Running the command will return the following.
+
+``` [INFO] Enabling TLS connection
+[INFO] Trusted certificates provided
+[INFO] Authentication skipped until first request
+[INFO] Query:  SELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10
+[INFO] GetSchema was successful
+[INFO] Schema:  <pyarrow._flight.SchemaResult object at 0x7febe2944610>
+[INFO] GetFlightInfo was successful
+[INFO] Ticket:  <Ticket b'\nDSELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10\x12^\n\\\nDSELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10\x10(\x1a\x12\t\x8a\x883#\x12\xd1\xd9\x1d\x11\x00\xb3\xbbC\xdb\xd9J\t'>
+[INFO] Reading query results from Dremio
+      pickup_datetime  passenger_count  trip_distance_mi  fare_amount  tip_amount  total_amount
+0 2013-05-27 19:15:00                1              1.26          7.5        0.00          8.00
+1 2013-05-31 16:40:00                1              0.73          5.0        1.20          7.70
+2 2013-05-27 19:03:00                2              9.23         27.5        5.00         38.33
+3 2013-05-31 16:24:00                1              2.27         12.0        0.00         13.50
+4 2013-05-27 19:17:00                1              0.71          5.0        0.00          5.50
+5 2013-05-27 19:11:00                1              2.52         10.5        3.15         14.15
+6 2013-05-31 16:41:00                5              1.01          6.0        1.10          8.60
+7 2013-05-31 16:37:00                1              1.25          8.5        0.00         10.00
+8 2013-05-31 16:39:00                1              2.04         10.0        1.50         13.00
+9 2013-05-27 19:02:00                1             11.73         32.5        8.12         41.12
+```
+
+You have now ran your first Flight query on Dremio Cloud!
