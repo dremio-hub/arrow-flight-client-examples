@@ -15,12 +15,13 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
   - `mvn clean install -DskipTests` 
 
 ### Instructions on using this Java sample application
+- Please note that username/password is not supported for Dremio Cloud.
+- If you plan on using PAT with a Dremio Software instance, you must pass in the PAT as a `password` argument along with the `username`.
 - By default, the hostname is `localhost` and the port is `32010`.
 - The application has a demo mode that runs an end-to-end demonstration without any arguments required, use the `-demo` flag to run the demo:
   - `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -demo`
   - To run the demo, you must have a running Dremio instance at the specified host and port.
   - The Dremio instance must also have `services.flight.auth.mode: "arrow.flight.auth2"` set in the dremio.conf file.
-- Only one of the following parameters must be provided for authentication: [password, pat/authToken].
 - Run the Java sample application:
   - `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -query <QUERY> -host <DREMIO_HOSTNAME> -port <DREMIO_PORT> -user <DREMIO_USER> -pass <DREMIO_PASSWORD>`
 - Learn more about different command line options with the help menu:
