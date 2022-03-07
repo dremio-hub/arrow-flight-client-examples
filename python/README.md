@@ -79,4 +79,4 @@ Running the command will return the following.
 9 2013-05-27 19:02:00                1             11.73         32.5        8.12         41.12
 ```
 
-You have now ran your first Flight query on Dremio Cloud!
+You have now run your first Flight query on Dremio Cloud!
