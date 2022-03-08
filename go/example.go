@@ -15,6 +15,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 
@@ -23,14 +24,29 @@ import (
 	"github.com/docopt/docopt-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
+
+type headerMiddleware struct {
+}
+
+func (c *headerMiddleware) StartCall(ctx context.Context) context.Context {
+	return ctx
+}
+
+func (c *headerMiddleware) CallCompleted(ctx context.Context, err error) {
+}
+
+func (c *headerMiddleware) HeadersReceived(ctx context.Context, md metadata.MD) {
+	log.Println("[INFO] Headers received:", md)
+}
 
 const usage = `Dremio Client Example.
 
 Usage:
   example -h | --help
-  example [--host=<hostname>] [--port=<port>] --user=<username> --pass=<password>
+  example [--host=<hostname>] [--port=<port>] (--user=<username> --pass=<password> | --pat=<pat>)
           [--tls] [--certs=<path>] [--query <query>]
 
 Options:
@@ -39,28 +55,33 @@ Options:
   --port=<port>       Dremio flight server port [default: 32010]
   --user=<username>   Dremio username
   --pass=<password>   Dremio password
+  --pat=<pat>         Dremio personal access token
   --query <query>     SQL Query to test.
   --tls               Enable encrypted connection.
   --certs=<path>      Path to trusted certificates for encrypted connection.`
 
 func main() {
-	args, _ := docopt.ParseDoc(usage)
+	args, err := docopt.ParseDoc(usage)
 	var config struct {
 		Host  string
 		Port  string
+		Pat   string
 		User  string
 		Pass  string
 		Query string
 		TLS   bool `docopt:"--tls"`
 		Certs string
 	}
-	args.Bind(&config)
-
-	opts := make([]grpc.DialOption, 0)
+	if err != nil {
+		log.Fatalf("error parsing arguments: %v", err)
+	}
+	if err := args.Bind(&config); err != nil {
+		log.Fatalf("error binding arguments: %v", err)
+	}
+	var creds credentials.TransportCredentials
 	if config.TLS {
 		log.Println("[INFO] Enabling TLS Connection.")
 		// if we want to use TLS let's set up our credentials
-		var creds credentials.TransportCredentials
 		if config.Certs == "" {
 			log.Println("[INFO] Using default host root certificate.")
 			// default will use local root certificates
@@ -78,13 +99,19 @@ func main() {
 				log.Fatal(err)
 			}
 		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
 		// default is to use unencrypted connection
-		opts = append(opts, grpc.WithInsecure())
+		creds = insecure.NewCredentials()
 	}
 
-	client, err := flight.NewFlightClient(net.JoinHostPort(config.Host, config.Port), nil, opts...)
+	client, err := flight.NewClientWithMiddleware(
+		net.JoinHostPort(config.Host, config.Port),
+		nil,
+		[]flight.ClientMiddleware{
+			flight.CreateClientMiddleware(&headerMiddleware{}),
+		},
+		grpc.WithTransportCredentials(creds),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,10 +124,15 @@ func main() {
 	ctx := metadata.NewOutgoingContext(context.TODO(),
 		metadata.Pairs("routing-tag", "test-routing-tag", "routing-queue", "Low Cost User Queries"))
 
-	if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
-		log.Fatal(err)
+	switch config.Pat {
+	case "":
+		if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("[INFO] Authentication was successful.")
+	default:
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
 	}
-	log.Println("[INFO] Authentication was successful.")
 
 	if config.Query == "" {
 		return
