@@ -355,7 +355,7 @@ public class QueryRunner {
    * @param clientProperties Dremio client properties.
    * @return a HeaderCallOption encapsulating provided key, value property pairs.
    */
-  public static HeaderCallOption createClientProperties(Map<String, String> clientProperties) {
+  private static HeaderCallOption createClientProperties(Map<String, String> clientProperties) {
     final CallHeaders callHeaders = new FlightCallHeaders();
     clientProperties.forEach(callHeaders::insert);
     return new HeaderCallOption(callHeaders);

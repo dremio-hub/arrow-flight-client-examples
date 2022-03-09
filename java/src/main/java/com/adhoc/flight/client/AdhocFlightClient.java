@@ -51,7 +51,6 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
-import com.adhoc.flight.utils.EncryptedConnectionUtils;
 import com.adhoc.flight.utils.QueryUtils;
 import com.beust.jcommander.internal.Nullable;
 import com.google.common.base.Strings;
@@ -63,13 +62,13 @@ import com.google.common.base.Strings;
 public final class AdhocFlightClient implements AutoCloseable {
   private final FlightClient client;
   private final BufferAllocator allocator;
-  private final CredentialCallOption credentialCallOption;
+  private final CredentialCallOption bearerToken;
 
   AdhocFlightClient(final FlightClient client, final BufferAllocator allocator,
-                    final CredentialCallOption credentialCallOption) {
+                    final CredentialCallOption bearerToken) {
     this.client = requireNonNull(client);
     this.allocator = requireNonNull(allocator);
-    this.credentialCallOption = requireNonNull(credentialCallOption);
+    this.bearerToken = requireNonNull(bearerToken);
   }
 
   /**
@@ -119,6 +118,7 @@ public final class AdhocFlightClient implements AutoCloseable {
 
     return getClientHelper(
       allocator,
+      host, port,
       user, pass,
       patOrAuthToken,
       clientProperties,
@@ -157,6 +157,7 @@ public final class AdhocFlightClient implements AutoCloseable {
 
     return getClientHelper(
       allocator,
+      host, port,
       user, pass,
       patOrAuthToken,
       clientProperties,
@@ -164,6 +165,7 @@ public final class AdhocFlightClient implements AutoCloseable {
   }
 
   private static AdhocFlightClient getClientHelper(BufferAllocator allocator,
+                                                   String host, int port,
                                                    String user, String pass,
                                                    String patOrAuthToken,
                                                    HeaderCallOption clientProperties,
@@ -329,8 +331,8 @@ public final class AdhocFlightClient implements AutoCloseable {
                        final @Nullable File fileToSaveTo,
                        final boolean printToConsole) throws Exception {
 
-    final FlightInfo flightInfo = getInfo(query, credentialCallOption, headerCallOption);
-    try (final FlightStream flightStream = getStream(flightInfo, credentialCallOption, headerCallOption);
+    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
          final OutputStream outputStream =
              fileToSaveTo == null ? null : new BufferedOutputStream(new FileOutputStream(fileToSaveTo))) {
       writeToOutputStream(
@@ -373,13 +375,5 @@ public final class AdhocFlightClient implements AutoCloseable {
   @Override
   public void close() throws Exception {
     AutoCloseables.close(client, allocator);
-  }
-
-  public FlightClient getFlightClient() {
-    return client;
-  }
-
-  public CredentialCallOption getCredentialCallOption() {
-    return credentialCallOption;
   }
 }

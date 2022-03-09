@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.adhoc.flight.utils;
+package com.adhoc.flight.client;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
