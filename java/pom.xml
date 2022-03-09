@@ -16,13 +16,6 @@
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>dremio-public</id>
-            <url>https://maven.dremio.com/public/</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
