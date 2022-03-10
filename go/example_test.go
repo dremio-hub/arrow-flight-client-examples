@@ -33,6 +33,7 @@ func TestDremio(t *testing.T) {
 	}{
 		// uses defaults for host and port, localhost and 32010
 		{"basic auth", []string{"--user=dremio", "--pass=dremio123"}, "[INFO] Authentication was successful."},
+		{"pat auth", []string{"--pat=mypat"}, "[INFO] Using PAT."},
 		// set host and port and send a query
 		{"test simple query", []string{"--host=localhost", "--port=32010", "--user=dremio", "--pass=dremio123",
 			"--query", "SELECT * FROM (VALUES(1,2,3))"},
