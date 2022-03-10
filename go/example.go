@@ -28,20 +28,6 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type headerMiddleware struct {
-}
-
-func (c *headerMiddleware) StartCall(ctx context.Context) context.Context {
-	return ctx
-}
-
-func (c *headerMiddleware) CallCompleted(ctx context.Context, err error) {
-}
-
-func (c *headerMiddleware) HeadersReceived(ctx context.Context, md metadata.MD) {
-	log.Println("[INFO] Headers received:", md)
-}
-
 const usage = `Dremio Client Example.
 
 Usage:
@@ -107,9 +93,7 @@ func main() {
 	client, err := flight.NewClientWithMiddleware(
 		net.JoinHostPort(config.Host, config.Port),
 		nil,
-		[]flight.ClientMiddleware{
-			flight.CreateClientMiddleware(&headerMiddleware{}),
-		},
+		nil,
 		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
@@ -124,14 +108,13 @@ func main() {
 	ctx := metadata.NewOutgoingContext(context.TODO(),
 		metadata.Pairs("routing-tag", "test-routing-tag", "routing-queue", "Low Cost User Queries"))
 
-	switch config.Pat {
-	case "":
+	if config.Pat != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
+	} else {
 		if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			log.Fatal(err)
 		}
 		log.Println("[INFO] Authentication was successful.")
-	default:
-		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
 	}
 
 	if config.Query == "" {
