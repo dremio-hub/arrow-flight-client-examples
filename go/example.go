@@ -110,6 +110,7 @@ func main() {
 
 	if config.Pat != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
+		log.Println("[INFO] Using PAT.")
 	} else {
 		if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			log.Fatal(err)
