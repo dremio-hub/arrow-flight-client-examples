@@ -95,7 +95,7 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String patOrAuthToken,
                                                      String keyStorePath,
                                                      String keyStorePass,
-                                                     boolean verifyServer,
+                                                     boolean disableServerVerification,
                                                      HeaderCallOption clientProperties,
                                                      List<FlightClientMiddleware.Factory> middlewares)
       throws Exception {
@@ -110,8 +110,12 @@ public final class AdhocFlightClient implements AutoCloseable {
       }
     }
 
-    if (verifyServer) {
+    if (disableServerVerification) {
       flightClientBuilder.verifyServer(false);
+    } else if (Strings.isNullOrEmpty(keyStorePath)) {
+      System.out.println("KeyStore path not provided. Defaulting to system KeyStore.");
+    } else if (Strings.isNullOrEmpty(keyStorePass)) {
+      System.out.println("KeyStore password not provided. Defaulting to system KeyStore.");
     } else {
       flightClientBuilder
         .trustedCertificates(EncryptedConnectionUtils.getCertificateStream(keyStorePath, keyStorePass));
