@@ -27,7 +27,6 @@ import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.adhoc.flight.client.AdhocFlightClient;
@@ -105,7 +104,7 @@ public class QueryRunner {
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
-        description = "Path to the jks keystore.")
+        description = "Path to the jks keystore. Defaults to system Keystore.")
     public String keystorePath = null;
 
     @Parameter(names = {"-kstpass", "--keyStorePassword"},
@@ -325,10 +324,6 @@ public class QueryRunner {
     }
 
     if (ARGUMENTS.enableTls) {
-      Preconditions.checkNotNull(ARGUMENTS.keystorePath,
-          "When TLS is enabled, path to the KeyStore is required.");
-      Preconditions.checkNotNull(ARGUMENTS.keystorePass,
-          "When TLS is enabled, the KeyStore password is required.");
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
