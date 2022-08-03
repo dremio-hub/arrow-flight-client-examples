@@ -169,15 +169,15 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
             # Connect to the server endpoint with an encrypted TLS connection.
             print('[INFO] Enabling TLS connection')
             scheme = "grpc+tls"
-            if certs:
-                print('[INFO] Trusted certificates provided')
-                # TLS certificates are provided in a list of connection arguments.
-                with open(certs, "rb") as root_certs:
-                    connection_args["tls_root_certs"] = root_certs.read()
-            elif disable_server_verification:
+            if disable_server_verification:
                 # Connect to the server endpoint with server verification disabled.
                 print('[INFO] Disable TLS server verification.')
                 connection_args['disable_server_verification'] = disable_server_verification
+            elif certs:
+                print('[INFO] Trusted certificates provided')
+                # TLS certificates are provided in a list of connection arguments.
+                with open(certs, "rb") as root_certs:
+                    connection_args["tls_root_certs"] = root_certs.read()                
             else:
                 print('[ERROR] Trusted certificates must be provided to establish a TLS connection')
                 sys.exit()
