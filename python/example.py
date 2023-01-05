@@ -16,6 +16,9 @@
 import argparse
 import certifi
 import sys
+import pyarrow as pa
+import pyarrow.csv as csv
+
 
 from http.cookies import SimpleCookie
 from pyarrow import flight
@@ -119,6 +122,7 @@ def parse_arguments():
     """
     Parses the command-line arguments supplied to the script.
     """
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('-host', '--hostname', type=str,
                         help='Dremio co-ordinator hostname. Defaults to \"localhost\".',
@@ -149,13 +153,14 @@ def parse_arguments():
                         required=False, nargs='*', action=KVParser)
     parser.add_argument('-engine', '--engine', type=str, help='The specific engine to run against.',
                         required=False)
-
+    parser.add_argument('-output', '--output-file', type=str, help='The output CSV file. Prints to the console by default.',
+                        required=False)
     return parser.parse_args()
 
 
 def connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
                                              tls, certs, disable_server_verification, pat_or_auth_token,
-                                             engine, session_properties):
+                                             engine, session_properties, output_file):
     """
     Connects to Dremio Flight server endpoint with the provided credentials.
     It also runs the query and retrieves the result set.
@@ -246,7 +251,15 @@ def connect_to_dremio_flight_server_endpoint(host, port, username, password, que
             # Retrieve the result set as a stream of Arrow record batches.
             reader = client.do_get(flight_info.endpoints[0].ticket, options)
             print('[INFO] Reading query results from Dremio')
-            print(reader.read_pandas())
+            # Output to a file if selected otherwise just echo to stdout
+            if output_file is not None:
+                res_table=(reader.read_all())
+                with csv.CSVWriter(output_file, res_table.schema) as writer:
+                    writer.write_table(res_table)
+                print('[INFO] Output results to ' + str(output_file))
+            else:
+                print(reader.read_pandas())
+
 
     except Exception as exception:
         print("[ERROR] Exception: {}".format(repr(exception)))
@@ -260,5 +273,4 @@ if __name__ == "__main__":
     connect_to_dremio_flight_server_endpoint(args.hostname, args.port, args.username, args.password,
                                              args.query, args.tls, args.trusted_certificates,
                                              args.disable_server_verification, args.pat_or_auth_token,
-                                             args.engine, args.session_properties)
-
+                                             args.engine, args.session_properties, args.output_file)
