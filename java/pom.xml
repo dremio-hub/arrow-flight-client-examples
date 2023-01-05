@@ -16,13 +16,6 @@
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>dremio-public</id>
-            <url>https://maven.dremio.com/public/</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -70,6 +63,14 @@
             <version>5.7.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.mockito/mockito-all -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>1.10.19</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

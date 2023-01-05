@@ -15,14 +15,14 @@ name: go-build
 on:
   push:
     branches:
-      - '**'
+      - "**"
     paths:
-      - 'go/**'
+      - "go/**"
   pull_request:
     branches:
-      - '**'
+      - "**"
     paths:
-      - 'go/**'
+      - "go/**"
   schedule:
     # run every monday at 9am PST
     - cron: "0 16 * * 1"
@@ -38,7 +38,7 @@ jobs:
       fail-fast: true
       max-parallel: 4
       matrix:
-        go-version: [1.13, 1.14, 1.15]
+        go-version: [1.16, 1.17]
 
     services:
       dremio:
@@ -65,8 +65,7 @@ jobs:
         run: pip install requests
 
       - name: Get Dependencies
-        run:
-          go get -v -t -d -tags tools .
+        run: go get -v -t -d -tags tools .
 
       - name: Build
         run: go build -v .

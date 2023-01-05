@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-
 package com.adhoc.flight;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -25,7 +27,6 @@ import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.adhoc.flight.client.AdhocFlightClient;
@@ -33,6 +34,7 @@ import com.adhoc.flight.utils.QueryUtils;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -42,11 +44,23 @@ public class QueryRunner {
   private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
   private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
-  private static final String CREATE_DEMO_TABLE =
-      "CREATE TABLE $scratch.dremio_flight_demo_table as select * from (VALUES(1,2,3),(4,5,6))";
-  private static final String DROP_DEMO_TABLE = "DROP TABLE $scratch.dremio_flight_demo_table";
-  private static final String SELECT_DEMO_TABLE = "SELECT * FROM dremio_flight_demo_table";
+  private static final String DEMO_TABLE = "dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
+  private static final String DEMO_CREATE_TABLE =
+      String.format("CREATE TABLE %s.%s as select * from (VALUES(1,2,3),(4,5,6))",
+        DEMO_TABLE_SCHEMA, DEMO_TABLE);
+  private static final String DEMO_DROP_TABLE = String.format("DROP TABLE %s.%s",
+      DEMO_TABLE_SCHEMA, DEMO_TABLE);
+  private static final String DEMO_SELECT_TABLE = String.format("SELECT * FROM %s", DEMO_TABLE);
+  private static final String DEMO_ROUTING_TAG = "test-routing-tag";
+  private static final String DEMO_ROUTING_QUEUE = "Low Cost User Queries";
+  private static final String DEMO_USERNAME = "dremio";
+  private static final String DEMO_PASSWORD = "dremio123";
+
+  public static final String KEY_SCHEMA = "SCHEMA";
+  public static final String KEY_ROUTING_TAG = "ROUTING_TAG";
+  public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
+  public static final String KEY_ROUTING_ENGINE = "ROUTING_ENGINE";
 
   /**
    * Class that holds all the command line arguments that can be used to run the
@@ -54,51 +68,65 @@ public class QueryRunner {
    */
   static class CommandLineArguments {
     @Parameter(names = {"-host", "--hostname"},
-        description = "Dremio co-ordinator hostname")
+        description = "Dremio co-ordinator hostname. Defaults to \"localhost\".")
     public String host = "localhost";
 
     @Parameter(names = {"-port", "--flightport"},
-        description = "Dremio flight server port")
+        description = "Dremio flight server port. Defaults to 32010.")
     public int port = 32010;
 
     @Parameter(names = {"-user", "--username"},
-        description = "Dremio username")
-    public String user = "dremio";
+        description = "Dremio username. Defaults to \"dremio\".")
+    public String user;
 
     @Parameter(names = {"-pass", "--password"},
-        description = "Dremio password")
-    public String pass = "dremio123";
+        description = "Dremio password. Defaults to \"dremio123\".")
+    public String pass;
+
+    @Parameter(names = {"-pat", "--personalAccessToken", "-authToken", "--authToken"},
+        description = "Either a Personal Access Token or an OAuth2 Token.")
+    public String patOrAuthToken;
 
     @Parameter(names = {"-query", "--sqlQuery"},
-        description = "SQL query to test")
+        description = "SQL query to test.")
     public String query = null;
 
     @Parameter(names = {"-binpath", "--saveBinaryPath"},
-        description = "path to save the SQL result binary to")
+        description = "Path to save the SQL result binary to.")
     public String pathToSaveQueryResultsTo = null;
 
     @Parameter(names = {"-tls", "--tls"},
-        description = "Enable encrypted connection")
+        description = "Enable encrypted connection. Defaults to false.")
     public boolean enableTls = false;
 
     @Parameter(names = {"-dsv", "--disableServerVerification"},
-        description = "Disable TLS server verification.")
+        description = "Disable TLS server verification. Defaults to false.")
     public boolean disableServerVerification = false;
 
     @Parameter(names = {"-kstpath", "--keyStorePath"},
-        description = "Path to the jks keystore")
+        description = "Path to the jks keystore. Defaults to system Keystore.")
     public String keystorePath = null;
 
     @Parameter(names = {"-kstpass", "--keyStorePassword"},
-        description = "The jks keystore password")
+        description = "The jks keystore password.")
     public String keystorePass = null;
 
     @Parameter(names = {"-demo", "--runDemo"},
-        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint.")
+        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint. Defaults to false.")
     public boolean runDemo = false;
 
+    @Parameter(names = {"-engine", "--engine"},
+        description = "The specific engine to run against.")
+    public String engine;
+
+    @Parameter(names = {"-sp", "--sessionProperty"},
+        description = "Key value pairs of SessionProperty, " +
+          "example: -sp schema='Samples.\"samples.dremio.com\"' -sp key=value",
+        listConverter = SessionPropertyConverter.class)
+    public List<SessionProperty> sessionProperties = new ArrayList<>();
+
     @Parameter(names = {"-h", "--help"},
-        description = "show usage", help = true)
+        description = "Show usage.", help = true)
     public boolean help = false;
   }
 
@@ -111,7 +139,7 @@ public class QueryRunner {
    *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runDemo() throws Exception {
@@ -125,13 +153,15 @@ public class QueryRunner {
     System.out.println("[INFO] [STEP 1]: Authenticating with the Dremio server using Arrow Flight " +
         "authorization header authentication.");
     System.out.println("[INFO] Initial UserSession client properties are set as well.");
-    System.out.println("[INFO] Setting client property: routing-tag => test-routing-tag");
-    System.out.println("[INFO] Setting client property: routing-queue => Low Cost User Queries");
+    System.out.println(String.format("[INFO] Setting client property: %s => %s",
+        KEY_ROUTING_TAG, DEMO_ROUTING_TAG));
+    System.out.println(String.format("[INFO] Setting client property: %s => %s",
+        KEY_ROUTING_QUEUE, DEMO_ROUTING_QUEUE));
 
     // Set routing-tag and routing-queue during initial authentication.
     final Map<String, String> properties = ImmutableMap.of(
-        "routing-tag", "test-routing-tag",
-        "routing-queue", "Low Cost User Queries");
+        KEY_ROUTING_TAG, DEMO_ROUTING_TAG,
+        KEY_ROUTING_QUEUE, DEMO_ROUTING_QUEUE);
     final HeaderCallOption routingCallOption = createClientProperties(properties);
 
     // Authenticates FlightClient with routing properties.
@@ -141,31 +171,34 @@ public class QueryRunner {
       /**
        * Create demo table in $scratch
        */
-      System.out.println("[INFO] [STEP 2]: Create a test table in $scratch.");
-      client.runQuery(CREATE_DEMO_TABLE);
-      System.out.println("[INFO] Created $scratch.dremio_flight_demo_table in $scratch successfully.");
+      // Set default schema path to "$scratch" for the next and following FlightRPC requests.
+      System.out.println(String.format("[INFO] Setting client property: %s => %s",
+          KEY_SCHEMA, DEMO_TABLE_SCHEMA));
+      final Map<String, String> schemaProperty = ImmutableMap.of(
+          KEY_SCHEMA, DEMO_TABLE_SCHEMA);
+      final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
+      System.out.println(String.format("[INFO] [STEP 2]: Create a test table in %s", DEMO_TABLE_SCHEMA));
+      client.runQuery(DEMO_CREATE_TABLE, schemaCallOption, null, true);
+      System.out.println(String.format("[INFO] Created %s.%s in %s successfully.",
+          DEMO_TABLE_SCHEMA, DEMO_TABLE, DEMO_TABLE_SCHEMA));
 
       /**
        * Query demo table
        */
-      System.out.println("[INFO] [STEP 3]: Query demo table $scrach.dremio_flight_demo_table");
-      System.out.println("[INFO] Setting client property: schema => $scratch");
-      QueryUtils.printRunningQuery(SELECT_DEMO_TABLE);
+      System.out.println(String.format("[INFO] [STEP 3]: Query demo table %s.%s",
+          DEMO_TABLE_SCHEMA, DEMO_TABLE));
+      QueryUtils.printRunningQuery(DEMO_SELECT_TABLE);
 
-      // Set default schema path to "$scratch" for the next FlightRPC request.
-      final Map<String, String> schemaProperty = ImmutableMap.of(
-          "schema", DEMO_TABLE_SCHEMA);
-      final HeaderCallOption schemaCallOption = createClientProperties(schemaProperty);
       // Run query "select * from dremio_flight_demo_table" without schema path.
-      client.runQuery(SELECT_DEMO_TABLE, schemaCallOption, true);
+      client.runQuery(DEMO_SELECT_TABLE, schemaCallOption, null, true);
       System.out.println();
 
       /**
        * Drop Demo Table
        */
       System.out.println("[INFO] [STEP 5]: Drop demo table.");
-      client.runQuery(DROP_DEMO_TABLE, schemaCallOption);
-      System.out.println("[INFO] Dropped $scratch.dremio_flight_demo_table successfully");
+      client.runQuery(DEMO_DROP_TABLE, schemaCallOption, null, true);
+      System.out.println(String.format("[INFO] Dropped %s.%s successfully", KEY_SCHEMA, DEMO_TABLE_SCHEMA));
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
       ex.printStackTrace();
@@ -183,15 +216,28 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
 
-    try (final AdhocFlightClient client = createFlightClient(null)) {
+
+    final Map<String, String> sessionPropertiesMap = new HashMap<>();
+
+    ARGUMENTS.sessionProperties.forEach( sessionProperty -> {
+      sessionPropertiesMap.put(sessionProperty.getKey(), sessionProperty.getValue());
+    });
+
+    if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
+      sessionPropertiesMap.put(KEY_ROUTING_ENGINE, ARGUMENTS.engine);
+    }
+
+    final HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
+
+    try (final AdhocFlightClient client = createFlightClient(clientProperties)) {
 
       /**
        * Authentication
@@ -204,9 +250,9 @@ public class QueryRunner {
       QueryUtils.printRunningQuery(ARGUMENTS.query);
 
       if (pathToSaveQueryResultsTo != null) {
-        client.runQuery(ARGUMENTS.query, new File(pathToSaveQueryResultsTo), true);
+        client.runQuery(ARGUMENTS.query, clientProperties, new File(pathToSaveQueryResultsTo), true);
       } else {
-        client.runQuery(ARGUMENTS.query, true);
+        client.runQuery(ARGUMENTS.query, clientProperties, null, true);
       }
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
@@ -223,10 +269,10 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runAdhoc() throws Exception {
@@ -259,28 +305,40 @@ public class QueryRunner {
    * @throws Exception If there are issues running queries against the Dremio Arrow Flight
    *                   Server Endpoint.
    *                   - FlightRuntimeError with Flight status code:
-   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given username and password.
+   *                   - UNAUTHENTICATED: unable to authenticate against Dremio with given credentials.
    *                   - INVALID_ARGUMENT: issues parsing query input.
    *                   - UNAUTHORIZED: Dremio user is not authorized to access the dataset.
-   *                   - UNAVAILABLE: Drmeio resource is not available.
+   *                   - UNAVAILABLE: Dremio resource is not available.
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+    // If no auth method provided, default to demo username/password
+    if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
+      if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
+        ARGUMENTS.user = DEMO_USERNAME;
+      }
+
+      if (Strings.isNullOrEmpty(ARGUMENTS.pass)) {
+        ARGUMENTS.pass = DEMO_PASSWORD;
+      }
+    }
+
     if (ARGUMENTS.enableTls) {
-      Preconditions.checkNotNull(ARGUMENTS.keystorePath,
-          "When TLS is enabled, path to the KeyStore is required.");
-      Preconditions.checkNotNull(ARGUMENTS.keystorePass,
-          "When TLS is enabled, the KeyStore password is required.");
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
+          ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
-          ARGUMENTS.disableServerVerification, clientProperties);
+          ARGUMENTS.disableServerVerification,
+          clientProperties,
+          null);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
-          clientProperties);
+          ARGUMENTS.patOrAuthToken,
+          clientProperties,
+          null);
     }
   }
 
