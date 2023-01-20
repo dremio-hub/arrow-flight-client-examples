@@ -1,5 +1,5 @@
 from http.cookies import SimpleCookie
-
+from pyarrow import flight
 
 class CookieMiddlewareFactory(flight.ClientMiddlewareFactory):
     """A factory that creates CookieMiddleware(s)."""
