@@ -28,6 +28,9 @@ if __name__ == "__main__":
 
     # Execute query and get reader
     dremio_flight_query = DremioFlightEndpointQuery(
-        args.query, flight_client, args.output_file, dremio_flight_conn
+        args.query, flight_client, dremio_flight_conn
     )
-    reader = dremio_flight_query.execute_query()
+    dataframe = dremio_flight_query.execute_query()
+
+    # Print out the data
+    print(dataframe)

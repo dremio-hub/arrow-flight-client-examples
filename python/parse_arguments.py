@@ -108,11 +108,4 @@ def parse_arguments():
         help="The specific engine to run against.",
         required=False,
     )
-    parser.add_argument(
-        "-output",
-        "--output-file",
-        type=str,
-        help="The output CSV file. Prints to the console by default.",
-        required=False,
-    )
     return parser.parse_args()
