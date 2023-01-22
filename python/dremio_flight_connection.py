@@ -3,6 +3,9 @@ from argparse import Namespace
 from dremio_middleware import DremioClientAuthMiddlewareFactory
 from cookie_middleware import CookieMiddlewareFactory
 import sys
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class DremioFlightEndpointConnection:
@@ -41,7 +44,7 @@ class DremioFlightEndpointConnection:
             )
 
         else:
-            print("[ERROR] Username/password or PAT/Auth token must be supplied.")
+            logging.error("Username/password or PAT/Auth token must be supplied.")
             sys.exit()
 
     def _connect_with_pat(
@@ -59,7 +62,7 @@ class DremioFlightEndpointConnection:
         self.headers.append(
             (b"authorization", "Bearer {}".format(self.token).encode("utf-8"))
         )
-        print("[INFO] Authentication skipped until first request")
+        logging.info("Authentication skipped until first request")
         return client
 
     def _connect_with_password(
@@ -79,30 +82,30 @@ class DremioFlightEndpointConnection:
         bearer_token = client.authenticate_basic_token(
             self.username, self.password, flight.FlightCallOptions(headers=self.headers)
         )
-        print("[INFO] Authentication was successful")
+        logging.info("Authentication was successful")
         self.headers.append(bearer_token)
         return client
 
     def _set_tls_connection_args(self) -> dict:
         # Connect to the server endpoint with an encrypted TLS connection.
-        print("[INFO] Enabling TLS connection")
+        logging.debug(" Enabling TLS connection")
         tls_args = {}
 
         if not self.enable_certificate_verification:
             # Connect to the server endpoint with server verification disabled.
-            print("[INFO] Disable TLS server verification.")
+            logging.info("Disable TLS server verification.")
             tls_args[
                 "enable_certificate_verification"
             ] = self.enable_certificate_verification
 
         elif self.path_to_certs:
-            print("[INFO] Trusted certificates provided")
+            logging.info("Trusted certificates provided")
             # TLS certificates are provided in a list of connection arguments.
             with open(self.path_to_certs, "rb") as root_certs:
                 tls_args["tls_root_certs"] = root_certs.read()
         else:
-            print(
-                "[ERROR] Trusted certificates must be provided to establish a TLS connection"
+            logging.error(
+                "Trusted certificates must be provided to establish a TLS connection"
             )
             sys.exit()
 

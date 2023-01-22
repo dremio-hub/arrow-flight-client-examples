@@ -1,6 +1,9 @@
 from pyarrow import flight
 from dremio_flight_connection import DremioFlightEndpointConnection
 from pandas import DataFrame, concat
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class DremioFlightEndpointQuery:
@@ -21,11 +24,10 @@ class DremioFlightEndpointQuery:
         flight_info = self.client.get_flight_info(
             flight.FlightDescriptor.for_command(self.query), options
         )
-        print("[INFO] GetFlightInfo was successful")
-        print("[INFO] Ticket: ", flight_info.endpoints[0].ticket)
+        logging.info("GetFlightInfo was successful")
+        logging.debug("Ticket: ", flight_info.endpoints[0].ticket)
 
         # Retrieve the result set as pandas DataFrame
-        # For further optimization, read the data in chunks using read_chunks
         reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
         return self._get_chunks(reader)
 
