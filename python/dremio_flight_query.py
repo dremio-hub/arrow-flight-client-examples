@@ -18,18 +18,23 @@ class DremioFlightEndpointQuery:
         self.headers = getattr(connection, "headers")
 
     def execute_query(self) -> DataFrame:
-        options = flight.FlightCallOptions(headers=self.headers)
-        # Get the FlightInfo message to retrieve the Ticket corresponding
-        # to the query result set.
-        flight_info = self.client.get_flight_info(
-            flight.FlightDescriptor.for_command(self.query), options
-        )
-        logging.info("GetFlightInfo was successful")
-        logging.debug("Ticket: ", flight_info.endpoints[0].ticket)
+        try:
 
-        # Retrieve the result set as pandas DataFrame
-        reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
-        return self._get_chunks(reader)
+            options = flight.FlightCallOptions(headers=self.headers)
+            # Get the FlightInfo message to retrieve the Ticket corresponding
+            # to the query result set.
+            flight_info = self.client.get_flight_info(
+                flight.FlightDescriptor.for_command(self.query), options
+            )
+            logging.info("GetFlightInfo was successful")
+            logging.debug("Ticket: ", flight_info.endpoints[0].ticket)
+
+            # Retrieve the result set as pandas DataFrame
+            reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
+            return self._get_chunks(reader)
+
+        except Exception as query_error:
+            logging.error(query_error)
 
     def _get_chunks(self, reader: flight.FlightStreamReader) -> DataFrame:
         dataframe = DataFrame()

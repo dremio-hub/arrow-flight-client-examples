@@ -2,7 +2,6 @@ from pyarrow import flight
 from argparse import Namespace
 from dremio_middleware import DremioClientAuthMiddlewareFactory
 from cookie_middleware import CookieMiddlewareFactory
-import sys
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -27,25 +26,30 @@ class DremioFlightEndpointConnection:
     def connect(self) -> flight.FlightClient:
         """Connects to Dremio Flight server endpoint with the
         provided credentials."""
-        # Default to use an unencrypted TCP connection.
-        scheme = "grpc+tcp"
-        client_cookie_middleware = CookieMiddlewareFactory()
+        try:
+            # Default to use an unencrypted TCP connection.
+            scheme = "grpc+tcp"
+            client_cookie_middleware = CookieMiddlewareFactory()
 
-        if self.tls:
-            tls_args = self._set_tls_connection_args()
-            scheme = "grpc+tls"
+            if self.tls:
+                tls_args = self._set_tls_connection_args()
+                scheme = "grpc+tls"
 
-        if self.token:
-            return self._connect_with_pat(tls_args, client_cookie_middleware, scheme)
+            if self.token:
+                return self._connect_with_pat(
+                    tls_args, client_cookie_middleware, scheme
+                )
 
-        elif self.username and self.password:
-            return self._connect_with_password(
-                tls_args, client_cookie_middleware, scheme
-            )
+            elif self.username and self.password:
+                return self._connect_with_password(
+                    tls_args, client_cookie_middleware, scheme
+                )
 
-        else:
-            logging.error("Username/password or PAT/Auth token must be supplied.")
-            sys.exit()
+            else:
+                raise Exception("Username/password or PAT/Auth token must be supplied.")
+
+        except Exception as connection_error:
+            logging.error(connection_error)
 
     def _connect_with_pat(
         self,
@@ -104,10 +108,9 @@ class DremioFlightEndpointConnection:
             with open(self.path_to_certs, "rb") as root_certs:
                 tls_args["tls_root_certs"] = root_certs.read()
         else:
-            logging.error(
+            raise Exception(
                 "Trusted certificates must be provided to establish a TLS connection"
             )
-            sys.exit()
 
         return tls_args
 

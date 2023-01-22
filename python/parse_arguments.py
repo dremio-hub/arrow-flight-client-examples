@@ -1,5 +1,6 @@
 import argparse
 import certifi
+import sys
 
 
 class KVParser(argparse.Action):
@@ -41,24 +42,22 @@ def parse_arguments():
         "--username",
         type=str,
         help='Dremio username. Defaults to "dremio".',
-        default="dremio",
+        required=True,
     )
     parser.add_argument(
         "-pass",
         "--password",
         type=str,
         help='Dremio password. Defaults to "dremio123".',
-        default="dremio123",
+        required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pat",
-        "--personalAccessToken",
-        "-authToken",
-        "--authToken",
+        "token",
         dest="token",
         type=str,
         help="Either a Personal Access Token or an OAuth2 Token.",
-        required=False,
+        required="-pass" not in sys.argv and "password" not in sys.argv,
     )
     parser.add_argument(
         "-query",
