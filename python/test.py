@@ -107,8 +107,9 @@ def test_bad_hostname():
     """
     Test connection with an incorrect server endpoint hostname.
     """
-    args_dict["hostname"] = "ha-ha!"
-    args_namespace_modified = Namespace(**args_dict)
+    args_dict_copy = args_dict.copy()
+    args_dict_copy["hostname"] = "ha-ha!"
+    args_namespace_modified = Namespace(**args_dict_copy)
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
     with pytest.raises(FlightUnavailableError):
@@ -119,10 +120,9 @@ def test_bad_port():
     """
     Test connection with an incorrect server endpoint port.
     """
-    # Correct the hostname changed in previous test
-    args_dict["hostname"] = os.getenv("DREMIO_HOSTNAME")
-    args_dict["port"] = 12345
-    args_namespace_modified = Namespace(**args_dict)
+    args_dict_copy = args_dict.copy()
+    args_dict_copy["port"] = 12345
+    args_namespace_modified = Namespace(**args_dict_copy)
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
     with pytest.raises(FlightUnavailableError):
@@ -133,10 +133,9 @@ def test_bad_password():
     """
     Test connection with an invalid password.
     """
-    args_dict["password"] = "ha-ha!"
-    # Correct the port changed in previous test
-    args_dict["port"] = os.getenv("DREMIO_FLIGHT_PORT")
-    args_namespace_modified = Namespace(**args_dict)
+    args_dict_copy = args_dict.copy()
+    args_dict_copy["password"] = "ha-ha!"
+    args_namespace_modified = Namespace(**args_dict_copy)
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
     with pytest.raises(FlightUnauthenticatedError):
@@ -147,10 +146,9 @@ def test_non_existent_user():
     """
     Test connection with an invalid username.
     """
-    # Correct the password changed in previous test
-    args_dict["username"] = "ha-ha!"
-    args_dict["password"] = os.getenv("DREMIO_PASSWORD")
-    args_namespace_modified = Namespace(**args_dict)
+    args_dict_copy = args_dict.copy()
+    args_dict_copy["username"] = "ha-ha!"
+    args_namespace_modified = Namespace(**args_dict_copy)
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
     with pytest.raises(FlightUnauthenticatedError):

@@ -33,8 +33,11 @@ class DremioFlightEndpointQuery:
             reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
             return self._get_chunks(reader)
 
-        except Exception as query_error:
-            logging.exception(query_error)
+        except Exception:
+            logging.exception(
+                "There was an error trying to get the data from the flight endpoint"
+            )
+            raise
 
     def _get_chunks(self, reader: flight.FlightStreamReader) -> DataFrame:
         dataframe = DataFrame()

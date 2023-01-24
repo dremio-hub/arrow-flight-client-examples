@@ -51,8 +51,11 @@ class DremioFlightEndpointConnection:
                     "Username/password or PAT/Auth token must be supplied."
                 )
 
-        except Exception as connection_error:
-            raise connection_error
+        except Exception:
+            logging.exception(
+                "There was an error trying to connect to the Dremio Flight Endpoint"
+            )
+            raise
 
     def _connect_with_pat(
         self,
