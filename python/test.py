@@ -14,22 +14,58 @@
   limitations under the License.
 """
 
+from dremio_flight_connection import DremioFlightEndpointConnection
+from dremio_flight_query import DremioFlightEndpointQuery
+from argparse import Namespace
+from numpy import array, array_equal
+from pyarrow.flight import FlightUnauthenticatedError, FlightUnavailableError
+from dotenv import load_dotenv
+import certifi
+import os
 import pytest
 
-from example import connect_to_dremio_flight_server_endpoint
+load_dotenv()
 
-host = "localhost"
-port = 32010
-username = "dremio"
-password = "dremio123"
+args_dict = {
+    "hostname": os.getenv("DREMIO_HOSTNAME"),
+    "port": os.getenv("DREMIO_FLIGHT_PORT"),
+    "username": os.getenv("DREMIO_USERNAME"),
+    "password": os.getenv("DREMIO_PASSWORD"),
+    "query": "select * from (VALUES(1,2,3))",
+    "token": None,
+    "tls": False,
+    "disable_certificate_verification": True,
+    "path_to_certs": certifi.where(),
+    "session_properties": None,
+    "engine": None,
+}
+
+args_dict_ssl = {
+    "hostname": os.getenv("DREMIO_CLOUD_HOSTNAME"),
+    "port": os.getenv("DREMIO_CLOUD_PORT"),
+    "username": None,
+    "password": None,
+    "query": "select * from (VALUES(1,2,3))",
+    "token": os.getenv("DREMIO_PAT"),
+    "tls": True,
+    "disable_certificate_verification": False,
+    "path_to_certs": certifi.where(),
+    "session_properties": None,
+    "engine": None,
+}
+
+
+args_namespace = Namespace(**args_dict)
+args_namespace_ssl = Namespace(**args_dict_ssl)
 
 
 def test_basic_auth():
     """
     Test connection to Dremio.
     """
-    connect_to_dremio_flight_server_endpoint(host, port, username, password,
-                                             False, False, False, False, False, False, False)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace)
+    flight_client = dremio_flight_conn.connect()
+    assert flight_client
 
 
 def test_simple_query():
@@ -37,53 +73,85 @@ def test_simple_query():
     Test connection to Dremio.
     Then test a simple VALUES query.
     """
-    query = "select * from (VALUES(1,2,3))"
-    connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
-                                             False, False, False, False, False, False)
+
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace)
+    flight_client = dremio_flight_conn.connect()
+    print(f"Flight Client is: {flight_client}")
+    dremio_flight_query = DremioFlightEndpointQuery(
+        args_namespace.query, flight_client, dremio_flight_conn
+    )
+    dataframe = dremio_flight_query.execute_query()
+    dataframe_arr = dataframe.to_numpy()
+    expected_arr = array([[1, 2, 3]])
+    assert array_equal(dataframe_arr, expected_arr)
 
 
-@pytest.mark.skip(reason="Need to run flight in the encrypted mode")
-def test_disable_server_verification():
-    """ Test connection to Dremio on a encrypted server using disable server verification options.
+def test_tls():
+    """Test connection to Dremio Cloud on a encrypted servers.
     Then test a simple VALUES query.
     """
-    query = "select * from (VALUES(1,2,3))"
-    connect_to_dremio_flight_server_endpoint(host, port, username, password, query,
-                                             True, False, True, False, False, False)
+
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_ssl)
+    flight_client = dremio_flight_conn.connect()
+    assert flight_client
+    dremio_flight_query = DremioFlightEndpointQuery(
+        args_namespace_ssl.query, flight_client, dremio_flight_conn
+    )
+    dataframe = dremio_flight_query.execute_query()
+    dataframe_arr = dataframe.to_numpy()
+    expected_arr = array([[1, 2, 3]])
+    assert array_equal(dataframe_arr, expected_arr)
 
 
 def test_bad_hostname():
     """
     Test connection with an incorrect server endpoint hostname.
     """
-    pytest.xfail("Bad hostname.")
-    connect_to_dremio_flight_server_endpoint("badHostNamE", port, username, password,
-                                             False, False, False, False, False, False, False)
+    args_dict["hostname"] = "ha-ha!"
+    args_namespace_modified = Namespace(**args_dict)
+
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    with pytest.raises(FlightUnavailableError):
+        dremio_flight_conn.connect()
 
 
 def test_bad_port():
     """
     Test connection with an incorrect server endpoint port.
     """
-    pytest.xfail("Bad port.")
-    connect_to_dremio_flight_server_endpoint(host, "12345", username, password,
-                                             False, False, False, False, False, False, False)
+    # Correct the hostname changed in previous test
+    args_dict["hostname"] = os.getenv("DREMIO_HOSTNAME")
+    args_dict["port"] = 12345
+    args_namespace_modified = Namespace(**args_dict)
+
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    with pytest.raises(FlightUnavailableError):
+        dremio_flight_conn.connect()
 
 
 def test_bad_password():
     """
     Test connection with an invalid password.
     """
-    pytest.xfail("Bad port.")
-    connect_to_dremio_flight_server_endpoint(host, port, username, "badPassword",
-                                             False, False, False, False, False, False, False)
+    args_dict["password"] = "ha-ha!"
+    # Correct the port changed in previous test
+    args_dict["port"] = os.getenv("DREMIO_FLIGHT_PORT")
+    args_namespace_modified = Namespace(**args_dict)
+
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    with pytest.raises(FlightUnauthenticatedError):
+        dremio_flight_conn.connect()
 
 
 def test_non_existent_user():
     """
     Test connection with an invalid username.
     """
-    pytest.xfail("Non-existent user.")
-    connect_to_dremio_flight_server_endpoint(host, port, "noSuchUser", password,
-                                             False, False, False, False, False, False, False)
+    # Correct the password changed in previous test
+    args_dict["username"] = "ha-ha!"
+    args_dict["password"] = os.getenv("DREMIO_PASSWORD")
+    args_namespace_modified = Namespace(**args_dict)
 
+    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    with pytest.raises(FlightUnauthenticatedError):
+        dremio_flight_conn.connect()

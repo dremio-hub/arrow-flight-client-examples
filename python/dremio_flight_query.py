@@ -27,14 +27,14 @@ class DremioFlightEndpointQuery:
                 flight.FlightDescriptor.for_command(self.query), options
             )
             logging.info("GetFlightInfo was successful")
-            logging.debug("Ticket: ", flight_info.endpoints[0].ticket)
+            logging.debug(f"Ticket: {flight_info.endpoints[0].ticket}")
 
             # Retrieve the result set as pandas DataFrame
             reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
             return self._get_chunks(reader)
 
         except Exception as query_error:
-            logging.error(query_error)
+            logging.exception(query_error)
 
     def _get_chunks(self, reader: flight.FlightStreamReader) -> DataFrame:
         dataframe = DataFrame()

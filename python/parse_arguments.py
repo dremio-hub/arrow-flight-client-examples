@@ -42,7 +42,7 @@ def parse_arguments():
         "--username",
         type=str,
         help='Dremio username. Defaults to "dremio".',
-        required=True,
+        required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pass",
@@ -53,7 +53,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "-pat",
-        "token",
+        "--token",
         dest="token",
         type=str,
         help="Either a Personal Access Token or an OAuth2 Token.",
@@ -76,12 +76,12 @@ def parse_arguments():
         action="store_true",
     )
     parser.add_argument(
-        "-ecv",
-        "--enableCertificateVerification",
-        dest="enable_certificate_verification",
+        "-dcv",
+        "--disableCertificateVerification",
+        dest="disable_certificate_verification",
         type=bool,
-        help="Enables or disables TLS server verification. Defaults to true.",
-        default=True,
+        help="Disables TLS server verification. Defaults to False.",
+        default=False,
     )
     parser.add_argument(
         "-path_to_certs",

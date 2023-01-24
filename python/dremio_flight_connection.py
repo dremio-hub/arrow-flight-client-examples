@@ -15,8 +15,8 @@ class DremioFlightEndpointConnection:
         self.password = connection_args.password
         self.token = connection_args.token
         self.tls = connection_args.tls
-        self.enable_certificate_verification = (
-            connection_args.enable_certificate_verification
+        self.disable_certificate_verification = (
+            connection_args.disable_certificate_verification
         )
         self.path_to_certs = connection_args.path_to_certs
         self.session_properties = connection_args.session_properties
@@ -30,6 +30,7 @@ class DremioFlightEndpointConnection:
             # Default to use an unencrypted TCP connection.
             scheme = "grpc+tcp"
             client_cookie_middleware = CookieMiddlewareFactory()
+            tls_args = {}
 
             if self.tls:
                 tls_args = self._set_tls_connection_args()
@@ -46,10 +47,12 @@ class DremioFlightEndpointConnection:
                 )
 
             else:
-                raise Exception("Username/password or PAT/Auth token must be supplied.")
+                raise ConnectionError(
+                    "Username/password or PAT/Auth token must be supplied."
+                )
 
         except Exception as connection_error:
-            logging.error(connection_error)
+            raise connection_error
 
     def _connect_with_pat(
         self,
@@ -95,12 +98,12 @@ class DremioFlightEndpointConnection:
         logging.debug(" Enabling TLS connection")
         tls_args = {}
 
-        if not self.enable_certificate_verification:
+        if self.disable_certificate_verification:
             # Connect to the server endpoint with server verification disabled.
             logging.info("Disable TLS server verification.")
             tls_args[
-                "enable_certificate_verification"
-            ] = self.enable_certificate_verification
+                "disable_server_verification"
+            ] = self.disable_certificate_verification
 
         elif self.path_to_certs:
             logging.info("Trusted certificates provided")

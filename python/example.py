@@ -31,6 +31,8 @@ if __name__ == "__main__":
         args.query, flight_client, dremio_flight_conn
     )
     dataframe = dremio_flight_query.execute_query()
+    data_row = dataframe.head(1)
+    print(data_row)
 
     # Print out the data
     print(dataframe)
