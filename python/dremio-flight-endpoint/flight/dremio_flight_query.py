@@ -1,5 +1,5 @@
 from pyarrow import flight
-from dremio_flight_connection import DremioFlightEndpointConnection
+from flight.dremio_flight_connection import DremioFlightEndpointConnection
 from pandas import DataFrame, concat
 import logging
 

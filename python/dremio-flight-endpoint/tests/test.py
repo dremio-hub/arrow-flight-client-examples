@@ -13,9 +13,6 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-
-from dremio_flight_connection import DremioFlightEndpointConnection
-from dremio_flight_query import DremioFlightEndpointQuery
 from argparse import Namespace
 from numpy import array, array_equal
 from pyarrow.flight import FlightUnauthenticatedError, FlightUnavailableError
@@ -23,6 +20,10 @@ from dotenv import load_dotenv
 import certifi
 import os
 import pytest
+
+from flight.dremio_flight_connection import DremioFlightEndpointConnection
+from flight.dremio_flight_query import DremioFlightEndpointQuery
+
 
 load_dotenv()
 
