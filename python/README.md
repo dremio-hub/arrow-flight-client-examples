@@ -6,18 +6,16 @@ Moreover, the tls option can be provided to establish an encrypted connection.
 
 ### Instructions on using this Python sample application
 - Install and setup Python3 as `pyarrow` requires Python3
-- This application also requires `pyarrow` and `pandas`. Consider one of the dependency installation methods below. We recommend using `conda` for its ease of use.
-- Install dependencies using `conda`
-  - `conda install -c conda-forge --file requirements.txt`
-- Alternatively, install dependencies using `pip` 
+- This application also requires `pyarrow` and `pandas`. 
+- Install dependencies using `pip` 
   - `pip3 install -r requirements.txt`
 - Run the Python sample application with a local instance of Dremio (with default parameters):
-  - `python3 example.py -query 'SELECT 1'`
+  - `python3 example.py -username <USER> -password <password> -query 'SELECT 1'`
 
 ```
-usage: example.py [-h] [-host HOSTNAME] [-port PORT] [-user USERNAME] [-pass PASSWORD]
-                  [-pat, -authToken PAT_OR_AUTH_TOKEN] [-query QUERY] [-tls] [-dsv DISABLE_SERVER_VERIFICATION]
-                  [-certs TRUSTED_CERTIFICATES] [-sessionProperties [SESSION_PROPERTIES ...]] [-engine ENGINE]
+usage: example.py [-h] [-host HOSTNAME] [-port PORT] -user USERNAME -pass PASSWORD -pat TOKEN -query QUERY [-tls]
+                  [-dcv DISABLE_CERTIFICATE_VERIFICATION] [-path_to_certs PATH_TO_CERTS] [-sp [SESSION_PROPERTIES ...]]
+                  [-engine ENGINE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -26,22 +24,23 @@ optional arguments:
   -port PORT, --flightport PORT
                         Dremio flight server port. Defaults to 32010.
   -user USERNAME, --username USERNAME
-                        Dremio username. Defaults to "dremio".
+                        Dremio username.
   -pass PASSWORD, --password PASSWORD
-                        Dremio password. Defaults to "dremio123".
-  -pat PAT_OR_AUTH_TOKEN, --personalAccessToken PAT_OR_AUTH_TOKEN, -authToken PAT_OR_AUTH_TOKEN, --authToken PAT_OR_AUTH_TOKEN
+                        Dremio password.
+  -pat TOKEN, --token TOKEN
                         Either a Personal Access Token or an OAuth2 Token.
   -query QUERY, --sqlQuery QUERY
-                        SQL query to test.
+                        SQL query to test
   -tls, --tls           Enable encrypted connection. Defaults to False.
-  -dsv DISABLE_SERVER_VERIFICATION, --disableServerVerification DISABLE_SERVER_VERIFICATION
-                        Disable TLS server verification. Defaults to False.
-  -certs TRUSTED_CERTIFICATES, --trustedCertificates TRUSTED_CERTIFICATES
+  -dcv DISABLE_CERTIFICATE_VERIFICATION, --disableCertificateVerification DISABLE_CERTIFICATE_VERIFICATION
+                        Disables TLS server verification. Defaults to False.
+  -path_to_certs PATH_TO_CERTS, --trustedCertificates PATH_TO_CERTS
                         Path to trusted certificates for encrypted connection. Defaults to system certificates.
-  -sessionProperties [SESSION_PROPERTIES ...], --sessionProperties [SESSION_PROPERTIES ...]
-                        Key value pairs of SessionProperty, example: -sessionProperties schema='Samples."samples.dremio.com"'
+  -sp [SESSION_PROPERTIES ...], --sessionProperty [SESSION_PROPERTIES ...]
+                        Key value pairs of SessionProperty, example: -sp schema='Samples."samples.dremio.com"' -sp key=value
   -engine ENGINE, --engine ENGINE
                         The specific engine to run against.
+
 ```
 
 ### Getting Started
@@ -57,15 +56,9 @@ This example queries the Dremio Sample dataset ```NYC-taxi-trips``` and returns 
 
 Running the command will return the following.
 
-``` [INFO] Enabling TLS connection
-[INFO] Trusted certificates provided
-[INFO] Authentication skipped until first request
-[INFO] Query:  SELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10
-[INFO] GetSchema was successful
-[INFO] Schema:  <pyarrow._flight.SchemaResult object at 0x7febe2944610>
-[INFO] GetFlightInfo was successful
-[INFO] Ticket:  <Ticket b'\nDSELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10\x12^\n\\\nDSELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10\x10(\x1a\x12\t\x8a\x883#\x12\xd1\xd9\x1d\x11\x00\xb3\xbbC\xdb\xd9J\t'>
-[INFO] Reading query results from Dremio
+``` INFO:root:Trusted certificates provided
+INFO:root:Authentication skipped until first request
+INFO:root:GetFlightInfo was successful
       pickup_datetime  passenger_count  trip_distance_mi  fare_amount  tip_amount  total_amount
 0 2013-05-27 19:15:00                1              1.26          7.5        0.00          8.00
 1 2013-05-31 16:40:00                1              0.73          5.0        1.20          7.70

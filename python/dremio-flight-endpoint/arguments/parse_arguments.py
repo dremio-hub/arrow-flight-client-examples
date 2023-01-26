@@ -57,14 +57,14 @@ def parse_arguments():
         "-user",
         "--username",
         type=str,
-        help='Dremio username. Defaults to "dremio".',
+        help="Dremio username.",
         required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pass",
         "--password",
         type=str,
-        help='Dremio password. Defaults to "dremio123".',
+        help="Dremio password.",
         required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(

@@ -1,4 +1,0 @@
-###### Requirements without version specifiers ######
-certifi
-pandas
-pyarrow
