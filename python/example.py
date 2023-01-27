@@ -13,9 +13,9 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-from arguments.parse_arguments import parse_arguments
-from flight.dremio_flight_connection import DremioFlightEndpointConnection
-from flight.dremio_flight_query import DremioFlightEndpointQuery
+from dremio.arguments.parse_arguments import parse_arguments
+from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
+from dremio.flight.dremio_flight_query import DremioFlightEndpointQuery
 
 if __name__ == "__main__":
     # Parse the command line arguments.
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     dremio_flight_conn = DremioFlightEndpointConnection(args)
     flight_client = dremio_flight_conn.connect()
 
-    # Execute query and get reader
+    # Execute query
     dremio_flight_query = DremioFlightEndpointQuery(
         args.query, flight_client, dremio_flight_conn
     )

@@ -15,13 +15,13 @@
 """
 
 import argparse
-import certifi
 import sys
+import certifi
 
 
 class KVParser(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, list())
+        setattr(namespace, self.dest, [])
 
         for value in values:
             # split it into key and value

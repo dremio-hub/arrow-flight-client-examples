@@ -53,8 +53,7 @@ class CookieMiddleware(flight.ClientMiddleware):
     def sending_headers(self):
         if self.factory.cookies:
             cookie_string = "; ".join(
-                "{!s}={!s}".format(key, val.value)
-                for (key, val) in self.factory.cookies.items()
+                f"{key}={val.value}" for (key, val) in self.factory.cookies.items()
             )
             return {b"cookie": cookie_string.encode("utf-8")}
         return {}

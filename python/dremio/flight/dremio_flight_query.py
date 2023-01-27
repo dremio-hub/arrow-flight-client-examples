@@ -13,10 +13,11 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-from pyarrow import flight
-from flight.dremio_flight_connection import DremioFlightEndpointConnection
-from pandas import DataFrame, concat
 import logging
+from pyarrow import flight
+from pandas import DataFrame, concat
+from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,7 +43,7 @@ class DremioFlightEndpointQuery:
                 flight.FlightDescriptor.for_command(self.query), options
             )
             logging.info("GetFlightInfo was successful")
-            logging.debug(f"Ticket: {flight_info.endpoints[0].ticket}")
+            logging.debug("Ticket: %s", flight_info.endpoints[0].ticket)
 
             # Retrieve the result set as pandas DataFrame
             reader = self.client.do_get(flight_info.endpoints[0].ticket, options)

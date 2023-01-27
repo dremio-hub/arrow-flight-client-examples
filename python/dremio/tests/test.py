@@ -20,10 +20,8 @@ from dotenv import load_dotenv
 import certifi
 import os
 import pytest
-
-from flight.dremio_flight_connection import DremioFlightEndpointConnection
-from flight.dremio_flight_query import DremioFlightEndpointQuery
-
+from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
+from dremio.flight.dremio_flight_query import DremioFlightEndpointQuery
 
 load_dotenv()
 

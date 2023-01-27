@@ -13,12 +13,12 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-
-from pyarrow import flight
-from argparse import Namespace
-from middleware.dremio_middleware import DremioClientAuthMiddlewareFactory
-from middleware.cookie_middleware import CookieMiddlewareFactory
 import logging
+from argparse import Namespace
+from pyarrow import flight
+from dremio.middleware.auth_middleware import DremioClientAuthMiddlewareFactory
+from dremio.middleware.cookie_middleware import CookieMiddlewareFactory
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,15 +57,14 @@ class DremioFlightEndpointConnection:
                     tls_args, client_cookie_middleware, scheme
                 )
 
-            elif self.username and self.password:
+            if self.username and self.password:
                 return self._connect_with_password(
                     tls_args, client_cookie_middleware, scheme
                 )
 
-            else:
-                raise ConnectionError(
-                    "Username/password or PAT/Auth token must be supplied."
-                )
+            raise ConnectionError(
+                "Username/password or PAT/Auth token must be supplied."
+            )
 
         except Exception:
             logging.exception(
@@ -80,14 +79,12 @@ class DremioFlightEndpointConnection:
         scheme: str,
     ) -> flight.FlightClient:
         client = flight.FlightClient(
-            "{}://{}:{}".format(scheme, self.hostname, self.port),
+            f"{scheme}://{self.hostname}:{self.port}",
             middleware=[client_cookie_middleware],
-            **tls_args
+            **tls_args,
         )
 
-        self.headers.append(
-            (b"authorization", "Bearer {}".format(self.token).encode("utf-8"))
-        )
+        self.headers.append((b"authorization", f"Bearer {self.token}".encode("utf-8")))
         logging.info("Authentication skipped until first request")
         return client
 
@@ -99,9 +96,9 @@ class DremioFlightEndpointConnection:
     ) -> flight.FlightClient:
         client_auth_middleware = DremioClientAuthMiddlewareFactory()
         client = flight.FlightClient(
-            "{}://{}:{}".format(scheme, self.hostname, self.port),
+            f"{scheme}://{self.hostname}:{self.port}",
             middleware=[client_auth_middleware, client_cookie_middleware],
-            **tls_args
+            **tls_args,
         )
 
         # Authenticate with the server endpoint.

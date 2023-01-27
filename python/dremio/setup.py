@@ -15,16 +15,16 @@
 """
 from setuptools import setup, find_namespace_packages
 
-name = "dremio-flight-endpoint"
-description = "Package that helps connect and query Dremio's Flight endpoint"
-version = "2.0.0"
+NAME = "dremio-flight-endpoint"
+DESCRIPTION = "Package that helps connect and query Dremio's Flight endpoint"
+VERSION = "2.0.0"
 
 setup(
-    name="flight",
-    version=version,
-    description=description,
+    name=NAME,
+    version=VERSION,
+    description=DESCRIPTION,
     author="Dremio",
     url="https://github.com/dremio-hub/arrow-flight-client-examples/tree/main/python",
-    packages=find_namespace_packages(include=["arguments", "middleware", "flight"]),
+    packages=find_namespace_packages(include=["dremio"]),
     install_requires=["certifi", "pandas", "pyarrow"],
 )
