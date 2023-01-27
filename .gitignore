@@ -2,3 +2,17 @@ java/.idea
 java/target
 java/*.iml
 .idea
+*.env
+python/__pycache__
+python/dremio/.pytest_cache
+python/dremio/__pycache__/
+python/dremio/tests/__pycache__/
+python/dremio/middleware/__pycache__/
+python/dremio/flight/__pycache__/
+python/dremio/arguments/__pycache__/
+python/dremio/*.egg-info/
+python/dremio/build/
+python/dremio/dist
+python/dist
+python/build
+python/*.egg-info
