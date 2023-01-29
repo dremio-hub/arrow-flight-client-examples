@@ -57,14 +57,14 @@ def parse_arguments():
         "-user",
         "--username",
         type=str,
-        help="Dremio username.",
+        help="Dremio username. Not required when connecting to Dremio Cloud",
         required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pass",
         "--password",
         type=str,
-        help="Dremio password.",
+        help="Dremio password. Not required when connecting to Dremio Cloud",
         required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
@@ -120,7 +120,7 @@ def parse_arguments():
         "-engine",
         "--engine",
         type=str,
-        help="The specific engine to run against.",
+        help="The specific engine to run against. Only applicable to Dremio Cloud.",
         required=False,
     )
     return parser.parse_args()
