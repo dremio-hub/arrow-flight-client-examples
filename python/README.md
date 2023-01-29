@@ -23,9 +23,8 @@ You have now run your first Flight query on Dremio Cloud!
 ## Configuration Options
 
 ```
-usage: example.py [-h] [-host HOSTNAME] [-port PORT] -user USERNAME -pass PASSWORD -pat TOKEN -query QUERY [-tls]
-                  [-dcv DISABLE_CERTIFICATE_VERIFICATION] [-path_to_certs PATH_TO_CERTS] [-sp [SESSION_PROPERTIES ...]]
-                  [-engine ENGINE]
+usage: example.py [-h] [-host HOSTNAME] [-port PORT] -user USERNAME -pass PASSWORD -pat TOKEN -query QUERY [-tls] [-dcv DISABLE_CERTIFICATE_VERIFICATION]
+                  [-path_to_certs PATH_TO_CERTS] [-sp [SESSION_PROPERTIES ...]] [-engine ENGINE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -34,13 +33,14 @@ optional arguments:
   -port PORT, --flightport PORT
                         Dremio flight server port. Defaults to 32010.
   -user USERNAME, --username USERNAME
-                        Dremio username.
+                        Dremio username. Not required when connecting to Dremio Cloud
   -pass PASSWORD, --password PASSWORD
-                        Dremio password.
+                        Dremio password. Not required when connecting to Dremio Cloud
   -pat TOKEN, --token TOKEN
                         Either a Personal Access Token or an OAuth2 Token.
   -query QUERY, --sqlQuery QUERY
-                        SQL query to test
+                        SQL query to test. Must be enclosed in single quotes. If single quotes are already present within the query, change those to double quotes and
+                        enclose entire query in single quotes.
   -tls, --tls           Enable encrypted connection. Defaults to False.
   -dcv DISABLE_CERTIFICATE_VERIFICATION, --disableCertificateVerification DISABLE_CERTIFICATE_VERIFICATION
                         Disables TLS server verification. Defaults to False.
@@ -49,7 +49,7 @@ optional arguments:
   -sp [SESSION_PROPERTIES ...], --sessionProperty [SESSION_PROPERTIES ...]
                         Key value pairs of SessionProperty, example: -sp schema='Samples."samples.dremio.com"' -sp key=value
   -engine ENGINE, --engine ENGINE
-                        The specific engine to run against.
+                        The specific engine to run against. Only applicable to Dremio Cloud.
 
 ```
 

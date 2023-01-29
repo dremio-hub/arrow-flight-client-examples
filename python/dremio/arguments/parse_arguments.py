@@ -80,7 +80,7 @@ def parse_arguments():
         "--sqlQuery",
         dest="query",
         type=str,
-        help="SQL query to test",
+        help="SQL query to test. Must be enclosed in single quotes. If single quotes are already present within the query, change those to double quotes and enclose entire query in single quotes.",
         required=True,
     )
     parser.add_argument(
