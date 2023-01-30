@@ -19,10 +19,8 @@ This process is the same if you launched the Dremio locally or via docker.
 1. Install [Python 3](https://www.python.org/downloads/)
 2. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
     - `python -m pip install <PATH TO WHEEL>` 
-3. Clone this repo and changed your working directory to: arrow-flight-client-examples/python/  
-    - `git clone https://github.com/dremio-hub/arrow-flight-client-examples.git`  
-    - `cd arrow-flight-client-examples/python/`
-4. Run the Python sample application with a local instance of Dremio (with default parameters):
+3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file. 
+4. Run your pthon file with a local instance of Dremio:
     - `python3 example.py -username <USER> -password <password> -query 'SELECT 1'`
 
 
