@@ -23,13 +23,15 @@ class KVParser(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, [])
 
-        for value in values:
-            # split it into key and value
-            key, value = value.split("=")
-            # insert into list as key-value tuples
-            getattr(namespace, self.dest).append(
-                (key.encode("utf-8"), value.encode("utf-8"))
+        dest = list(
+            map(
+                lambda value: list(
+                    map(lambda split_val: split_val.encode("utf-8"), value.split("="))
+                ),
+                values,
             )
+        )
+        setattr(namespace, self.dest, dest)
 
 
 def parse_arguments():
