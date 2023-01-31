@@ -14,22 +14,20 @@
   limitations under the License.
 """
 from dremio.arguments.parse_arguments import parse_arguments
-from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
-from dremio.flight.dremio_flight_query import DremioFlightEndpointQuery
+from dremio.flight.dremio_flight_endpoint import DremioFlightEndpoint
 
 if __name__ == "__main__":
     # Parse the command line arguments.
     args = parse_arguments()
 
+    # Instantiate DremioFlightEndpoint object
+    dremio_flight_endpoint = DremioFlightEndpoint(args)
+
     # Connect to Dremio Arrow Flight server endpoint.
-    dremio_flight_conn = DremioFlightEndpointConnection(args)
-    flight_client = dremio_flight_conn.connect()
+    flight_client = dremio_flight_endpoint.connect()
 
     # Execute query
-    dremio_flight_query = DremioFlightEndpointQuery(
-        args.query, flight_client, dremio_flight_conn
-    )
-    dataframe = dremio_flight_query.execute_query()
+    dataframe = dremio_flight_endpoint.execute_query(flight_client)
 
     # Print out the data
     print(dataframe)

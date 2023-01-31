@@ -18,7 +18,6 @@ from pyarrow import flight
 from pandas import DataFrame, concat
 from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
 
-
 logging.basicConfig(level=logging.INFO)
 
 
