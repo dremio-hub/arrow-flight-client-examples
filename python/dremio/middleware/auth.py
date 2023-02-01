@@ -49,7 +49,7 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
 
     def received_headers(self, headers):
         auth_header_key = "authorization"
-        authorization_header : str = reduce(
+        authorization_header = reduce(
             lambda result, header: header[1] if header[0] == auth_header_key
             else result,
             headers.items(),
