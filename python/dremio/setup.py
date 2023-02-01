@@ -13,21 +13,18 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-from dremio.arguments.parse import parse_arguments
-from dremio.flight.endpoint import DremioFlightEndpoint
+from setuptools import setup, find_namespace_packages
 
-if __name__ == "__main__":
-    # Parse the command line arguments.
-    args = parse_arguments()
+NAME = "dremio-flight-endpoint"
+DESCRIPTION = "Package that helps connect and query Dremio's Flight endpoint"
+VERSION = "2.0.0"
 
-    # Instantiate DremioFlightEndpoint object
-    dremio_flight_endpoint = DremioFlightEndpoint(args)
-
-    # Connect to Dremio Arrow Flight server endpoint.
-    flight_client = dremio_flight_endpoint.connect()
-
-    # Execute query
-    dataframe = dremio_flight_endpoint.execute_query(flight_client)
-
-    # Print out the data
-    print(dataframe)
+setup(
+    name=NAME,
+    version=VERSION,
+    description=DESCRIPTION,
+    author="Dremio",
+    url="https://github.com/dremio-hub/arrow-flight-client-examples/tree/main/python",
+    packages=find_namespace_packages(include=["dremio"]),
+    install_requires=["certifi", "pandas", "pyarrow"],
+)
