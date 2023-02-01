@@ -1,6 +1,0 @@
-###### Requirements without version specifiers ######
-certifi
-pandas
-
-###### Requirements with version specifiers ######
-pyarrow==5.0.0
