@@ -16,8 +16,8 @@
 import logging
 from argparse import Namespace
 from pyarrow import flight
-from dremio.middleware.auth_middleware import DremioClientAuthMiddlewareFactory
-from dremio.middleware.cookie_middleware import CookieMiddlewareFactory
+from dremio.middleware.auth import DremioClientAuthMiddlewareFactory
+from dremio.middleware.cookie import CookieMiddlewareFactory
 
 
 logging.basicConfig(level=logging.INFO)

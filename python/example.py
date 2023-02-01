@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-from dremio.arguments.parse_arguments import parse_arguments
-from dremio.flight.dremio_flight_endpoint import DremioFlightEndpoint
+from dremio.arguments.parse import parse_arguments
+from dremio.flight.endpoint import DremioFlightEndpoint
 
 if __name__ == "__main__":
     # Parse the command line arguments.

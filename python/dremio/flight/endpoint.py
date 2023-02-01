@@ -1,5 +1,5 @@
-from dremio.flight.dremio_flight_connection import DremioFlightEndpointConnection
-from dremio.flight.dremio_flight_query import DremioFlightEndpointQuery
+from dremio.flight.connection import DremioFlightEndpointConnection
+from dremio.flight.query import DremioFlightEndpointQuery
 from argparse import Namespace
 from pyarrow import flight
 from pandas import DataFrame
