@@ -49,7 +49,7 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
 
     def received_headers(self, headers):
         auth_header_key = "authorization"
-        authorization_header = reduce(
+        authorization_header : str = reduce(
             lambda result, header: header[1] if header[0] == auth_header_key
             else result,
             headers.items(),
@@ -57,5 +57,5 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         if not authorization_header:
             raise Exception("Did not receive authorization header back from server.")
         self.factory.set_call_credential(
-            [b"authorization", authorization_header.encode("utf-8")]
+            [b"authorization", authorization_header[0].encode("utf-8")]
         )
