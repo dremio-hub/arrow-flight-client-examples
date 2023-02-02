@@ -21,7 +21,7 @@ This process is the same if you launched the Dremio locally or via docker.
     - `python -m pip install <PATH TO WHEEL>` 
 3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file. 
 4. Run your python file with a local instance of Dremio:
-    - `python3 example.py -username <USER> -password <password> -query 'SELECT 1'`
+    - `python3 example.py --username <USER> --password <password> -query 'SELECT 1'`
 
 
 ### 1.2 Query your dataset with arrow flight client in java
