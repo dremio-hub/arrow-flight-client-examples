@@ -5,7 +5,7 @@
 2. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
     - `python -m pip install <PATH TO WHEEL>` 
 3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file. 
-4. Run your pthon file with a local instance of Dremio:
+4. Run your python file with a local instance of Dremio:
     - `python3 example.py -username <USER> -password <password> -query 'SELECT 1'`
 
 ## How to connect to Dremio Cloud
