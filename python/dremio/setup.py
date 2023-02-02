@@ -17,7 +17,7 @@ from setuptools import setup, find_namespace_packages
 
 NAME = "dremio-flight-endpoint"
 DESCRIPTION = "Package that helps connect and query Dremio's Flight endpoint"
-VERSION = "2.0.0"
+VERSION = "1.0.0"
 
 setup(
     name=NAME,
