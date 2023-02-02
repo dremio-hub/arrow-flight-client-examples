@@ -8,6 +8,7 @@
 4. Run your python file with a local instance of Dremio:
     - `python3 example.py --username <USER> --password <password> -query 'SELECT 1'`
 
+
 ## How to connect to Dremio Cloud
 
 Get started with your first query to Dremio Cloud.
