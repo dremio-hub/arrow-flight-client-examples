@@ -56,7 +56,6 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         )
         if not authorization_header:
             raise Exception("Did not receive authorization header back from server.")
-        bearer_token = authorization_header[1][0]
         self.factory.set_call_credential(
-            [b"authorization", bearer_token.encode("utf-8")]
+            [b"authorization", authorization_header.encode("utf-8")]
         )

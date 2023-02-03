@@ -59,15 +59,15 @@ def parse_arguments():
         "-user",
         "--username",
         type=str,
-        help="Dremio username. Not applicable when connecting to Dremio Cloud",
-        required="-pat" not in sys.argv and "--token" not in sys.argv,
+        help="Dremio username. Not required when connecting to Dremio Cloud",
+        required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pass",
         "--password",
         type=str,
-        help="Dremio password. Not applicable when connecting to Dremio Cloud",
-        required="-pat" not in sys.argv and "--token" not in sys.argv,
+        help="Dremio password. Not required when connecting to Dremio Cloud",
+        required="-pat" not in sys.argv and "token" not in sys.argv,
     )
     parser.add_argument(
         "-pat",
@@ -75,7 +75,7 @@ def parse_arguments():
         dest="token",
         type=str,
         help="Either a Personal Access Token or an OAuth2 Token.",
-        required="-pass" not in sys.argv and "--password" not in sys.argv,
+        required="-pass" not in sys.argv and "password" not in sys.argv,
     )
     parser.add_argument(
         "-query",
