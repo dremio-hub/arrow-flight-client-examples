@@ -80,3 +80,9 @@ Running the command will return the following.
 ```
 
 You have now run your first Flight query on Dremio Cloud!
+
+### Note 
+* If you are running Dremio Enterprise on your own infrastructure (i.e. not running on Dremio Cloud) and are using PATs, the PAT must be added as the value to the `-pass` parameter and the `-user` must be specified.
+E.g:
+
+```python3 example.py -host my.dremio.local -port 443 -user dremio -pass '<INSERT PAT HERE>' -tls -query 'SELECT * FROM Samples."samples.dremio.com"."NYC-taxi-trips" limit 10'```
