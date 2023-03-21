@@ -25,6 +25,6 @@ setup(
     description=DESCRIPTION,
     author="Dremio",
     url="https://github.com/dremio-hub/arrow-flight-client-examples/tree/main/python",
-    packages=find_namespace_packages(include=["dremio"]),
+    packages=find_namespace_packages(include=["dremio", "dremio.*"]),
     install_requires=["certifi", "pandas", "pyarrow"],
 )
