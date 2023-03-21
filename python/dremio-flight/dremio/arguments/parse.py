@@ -74,8 +74,8 @@ def parse_arguments():
         "--token",
         dest="token",
         type=str,
-        help="Either a Personal Access Token or an OAuth2 Token.",
-        required="-pass" not in sys.argv and "--password" not in sys.argv,
+        help="Either a Personal Access Token or an OAuth2 Token. Only applicable to Dremio Cloud. Use --password if connecting to Dremio Software using PAT",
+        required="-user" not in sys.argv and "--username" not in sys.argv,
     )
     parser.add_argument(
         "-query",
