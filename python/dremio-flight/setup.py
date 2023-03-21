@@ -15,7 +15,7 @@
 """
 from setuptools import setup, find_namespace_packages
 
-NAME = "dremio-flight-endpoint"
+NAME = "dremio-flight"
 DESCRIPTION = "Package that helps connect and query Dremio's Flight endpoint"
 VERSION = "1.0.0"
 
@@ -25,6 +25,6 @@ setup(
     description=DESCRIPTION,
     author="Dremio",
     url="https://github.com/dremio-hub/arrow-flight-client-examples/tree/main/python",
-    packages=find_namespace_packages(include=["dremio", "dremio.*"]),
+    packages=find_namespace_packages(include=["dremio.*"]),
     install_requires=["certifi", "pandas", "pyarrow"],
 )
