@@ -13,12 +13,12 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 """
-from dremio.arguments.parse import parse_arguments
+from dremio.arguments.parse import get_config
 from dremio.flight.endpoint import DremioFlightEndpoint
 
 if __name__ == "__main__":
-    # Parse the command line arguments.
-    args = parse_arguments()
+    # Parse the config file.
+    args = get_config()
 
     # Instantiate DremioFlightEndpoint object
     dremio_flight_endpoint = DremioFlightEndpoint(args)
