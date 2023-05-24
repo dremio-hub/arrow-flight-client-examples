@@ -1,7 +1,7 @@
 # Java Arrow Flight Client Application Example
 ![Build Status](https://github.com/dremio-hub/arrow-flight-client-examples/workflows/java-build/badge.svg)
 
-This lightweight Java client application connects to the Dremio Arrow Flight server endpoint. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection. 
+This lightweight Java client application connects to the Dremio Arrow Flight server endpoint. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection.
 > Note that: Trusted certificates must be provided when the tls option is enabled.
 
 ### Prerequisites
@@ -13,7 +13,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 - Clone this repository.
 - Navigate to arrow-flight-client-examples/java.
 - Build the sample application on the command line with:
-  - `mvn clean install -DskipTests` 
+  - `mvn clean install -DskipTests`
 
 ### Instructions on using this Java sample application
 - By default, the hostname is `localhost` and the port is `32010`.
@@ -25,7 +25,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 - Run the Java sample application:
   - `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -query <QUERY> -host <DREMIO_HOSTNAME> -port <DREMIO_PORT> -user <DREMIO_USER> -pass <DREMIO_PASSWORD>`
 - Learn more about different command line options with the help menu:
-  - `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -h` 
+  - `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -h`
 
 ### Usage
 ```
@@ -55,7 +55,7 @@ Arguments:
     -pat, --personalAccessToken, -authToken, --authToken
       Either a Personal Access Token or an OAuth2 Token.
     -demo, --runDemo
-      A flag to to run a demo of querying the Dremio Flight Server Endpoint. 
+      A flag to to run a demo of querying the Dremio Flight Server Endpoint.
       Defaults to false.
     -binpath, --saveBinaryPath
       Path to save the SQL result binary to.

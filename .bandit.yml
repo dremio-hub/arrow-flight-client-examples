@@ -94,6 +94,7 @@ skips:
 ### provided. It is not necessary to provide settings for every (or any) plugin
 ### if the defaults are acceptable.
 
+exclude_dirs: ["tests"]
 any_other_function_with_shell_equals_true:
     no_shell:
         - os.execl
@@ -132,10 +133,6 @@ any_other_function_with_shell_equals_true:
         - subprocess.check_call
         - subprocess.check_output
         - subprocess.run
-assert_used:
-    skips: ["*_test.py", "*test_*.py", "*test.py"]
-hardcoded_password_string:
-    skips: ["*/tests/test.py"]
 hardcoded_tmp_directory:
     tmp_dirs:
         - /tmp

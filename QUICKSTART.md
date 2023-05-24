@@ -13,13 +13,13 @@
 This process is the same if you launched the Dremio locally or via docker.
 
 ### 1.1 Query your datasets with Python
-> 
+>
 #### 1.1.1 Getting Started
 
 1. Install [Python 3](https://www.python.org/downloads/)
 2. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
-    - `python -m pip install <PATH TO WHEEL>` 
-3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file. 
+    - `python -m pip install <PATH TO WHEEL>`
+3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file.
 4. Run your python file with a local instance of Dremio:
     - `python3 example.py --username <USER> --password <password> -query 'SELECT 1'`
 
@@ -57,7 +57,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 usage: java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -query <QUERY> -host <DREMIO_HOSTNAME> -port <DREMIO_PORT> -user <DREMIO_USER> -pass <DREMIO_PASSWORD>
 
 optional arguments:
-  -h, --help            
+  -h, --help
     show this help message and exit
   -port, --flightport
     Dremio flight server port
