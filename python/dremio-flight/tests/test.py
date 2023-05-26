@@ -62,7 +62,7 @@ def test_basic_auth():
     """
     Test connection to Dremio.
     """
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict)
     flight_client = dremio_flight_conn.connect()
     assert flight_client
 
@@ -73,11 +73,11 @@ def test_simple_query():
     Then test a simple VALUES query.
     """
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict)
     flight_client = dremio_flight_conn.connect()
     print(f"Flight Client is: {flight_client}")
     dremio_flight_query = DremioFlightEndpointQuery(
-        args_namespace.query, flight_client, dremio_flight_conn
+        args_dict["query"], flight_client, dremio_flight_conn
     )
     dataframe = dremio_flight_query.execute_query()
     dataframe_arr = dataframe.to_numpy()
@@ -90,11 +90,11 @@ def test_tls():
     Then test a simple VALUES query.
     """
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_ssl)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict_ssl)
     flight_client = dremio_flight_conn.connect()
     assert flight_client
     dremio_flight_query = DremioFlightEndpointQuery(
-        args_namespace_ssl.query, flight_client, dremio_flight_conn
+        args_dict_ssl["query"], flight_client, dremio_flight_conn
     )
     dataframe = dremio_flight_query.execute_query()
     dataframe_arr = dataframe.to_numpy()
@@ -106,11 +106,10 @@ def test_bad_hostname():
     """
     Test connection with an incorrect server endpoint hostname.
     """
-    args_dict_copy = args_dict.copy()
-    args_dict_copy["hostname"] = "ha-ha!"
-    args_namespace_modified = Namespace(**args_dict_copy)
+    args_dict_bad_hostname = args_dict.copy()
+    args_dict_bad_hostname["hostname"] = "ha-ha!"
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_hostname)
     with pytest.raises(FlightUnavailableError):
         dremio_flight_conn.connect()
 
@@ -119,11 +118,10 @@ def test_bad_port():
     """
     Test connection with an incorrect server endpoint port.
     """
-    args_dict_copy = args_dict.copy()
-    args_dict_copy["port"] = 12345
-    args_namespace_modified = Namespace(**args_dict_copy)
+    args_dict_bad_port = args_dict.copy()
+    args_dict_bad_port["port"] = 12345
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_port)
     with pytest.raises(FlightUnavailableError):
         dremio_flight_conn.connect()
 
@@ -132,11 +130,10 @@ def test_bad_password():
     """
     Test connection with an invalid password.
     """
-    args_dict_copy = args_dict.copy()
-    args_dict_copy["password"] = "ha-ha!"
-    args_namespace_modified = Namespace(**args_dict_copy)
+    args_dict_bad_password = args_dict.copy()
+    args_dict_bad_password["password"] = "ha-ha!"
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_password)
     with pytest.raises(FlightUnauthenticatedError):
         dremio_flight_conn.connect()
 
@@ -145,10 +142,9 @@ def test_non_existent_user():
     """
     Test connection with an invalid username.
     """
-    args_dict_copy = args_dict.copy()
-    args_dict_copy["username"] = "ha-ha!"
-    args_namespace_modified = Namespace(**args_dict_copy)
+    args_dict_bad_user = args_dict.copy()
+    args_dict_bad_user["username"] = "ha-ha!"
 
-    dremio_flight_conn = DremioFlightEndpointConnection(args_namespace_modified)
+    dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_user)
     with pytest.raises(FlightUnauthenticatedError):
         dremio_flight_conn.connect()

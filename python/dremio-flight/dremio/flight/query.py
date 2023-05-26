@@ -34,7 +34,6 @@ class DremioFlightEndpointQuery:
 
     def execute_query(self) -> DataFrame:
         try:
-
             options = flight.FlightCallOptions(headers=self.headers)
             # Get the FlightInfo message to retrieve the Ticket corresponding
             # to the query result set.
