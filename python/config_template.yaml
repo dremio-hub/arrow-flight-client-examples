@@ -9,6 +9,6 @@
 #disable_certificate_verification:
 #path_to_certs:
 #session_properties:
-#  - <hello>
+#  - schema: Samples."samples.dremio.com"
 #  - <keep adding more session properties>
 #engine:
