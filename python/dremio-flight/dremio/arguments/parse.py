@@ -18,11 +18,6 @@ import argparse
 import certifi
 
 
-def username_required_validator(config: dict):
-    # if config["options"].get("")
-    return True
-
-
 options_default_validator = {
     "default": {
         "hostname": "localhost",
@@ -107,23 +102,22 @@ def validate_required_options(config: dict):
             )
 
 
-def validate_cloud_software_config(config: dict):
+def validate_auth_config(config: dict):
     if config.get("username") is None:
         if config.get("token") is None:
             raise Exception(
                 "When connecting to Dremio Cloud, a 'token' must be supplied. If connecting to Dremio Software, a 'username' and ('password' or 'token') must be provided."
             )
-    else:
-        if config.get("password") is None and config.get("token") is None:
-            raise Exception(
-                "When connecting to Dremio Cloud, a 'token' must be supplied. When connecting to Dremio Software, a 'username' and ('password' or 'token') must be provided."
-            )
+    elif config.get("password") is None and config.get("token") is None:
+        raise Exception(
+            "When connecting to Dremio Cloud, a 'token' must be supplied. When connecting to Dremio Software, a 'username' and ('password' or 'token') must be provided."
+        )
 
 
 def validate_config(config: dict):
     validate_options_type(config)
     validate_required_options(config)
-    validate_cloud_software_config(config)
+    validate_auth_config(config)
     return
 
 
