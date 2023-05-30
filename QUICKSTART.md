@@ -1,34 +1,42 @@
-
 # Dremio and Arrow Flight Quickstart
 
 ## Documentation
 
-- Documentation is available [here](https://docs.dremio.com).
+-   Documentation is available [here](https://docs.dremio.com).
 
-- QUICKSTART at Dremio [Here](https://docs.dremio.com/quickstart/).
+-   QUICKSTART at Dremio [Here](https://docs.dremio.com/quickstart/).
 
 ---
 
 ## 1 Query data using Flight clients
+
 This process is the same if you launched the Dremio locally or via docker.
 
 ### 1.1 Query your datasets with Python
+
 >
+
 #### 1.1.1 Getting Started
 
 1. Install [Python 3](https://www.python.org/downloads/)
-2. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
+1. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
     - `python -m pip install <PATH TO WHEEL>`
-3. Copy the contents of arrow-flight-client-examples/python/example.py into your own python file.
-4. Run your python file with a local instance of Dremio:
-    - `python3 example.py --username <USER> --password <password> -query 'SELECT 1'`
-
-
+1. Create a file named `config.yaml` in the `arrow-flight-client-examples/python` directory. Copy the contents of `arrow-flight-client-examples/python/config_template.yaml` into `config.yaml`.
+1. Uncomment the options in `config.yaml` as needed, appending the argument after the key. ie. `username: my_username`. You can either delete the options that are not being used or leave them commented.
+    - e.g. If you are connecting to a local instance of Dremio, your config file would look like:
+        ```
+        username: my_username
+        password: my_password
+        query: SELECT 1
+        ```
+1. Run the Python Arrow Flight Client by navigating to the `arrow-flight-client-examples/python` directory and running the command `python3 example.py`.
 
 ### 1.2 Query your dataset with arrow flight client in java
+
 This lightweight Java client application connects to the Dremio Arrow Flight server endpoint. It requires the username and password for authentication. Developers can use admin or regular user credentials for authentication. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. By default, the hostname is `localhost` and the port is `32010`. Developers can change these default settings by providing the hostname and port as arguments when running the client. Moreover, the tls option can be provided to establish an encrypted connection.
 
 #### 1.2.1 Prerequisites
+
 -   Java 8
 -   Maven 3.5 or above
 
@@ -51,7 +59,8 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 -   Learn more about different command line options with the help menu:
     -   `java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -h`
     -
-#### 1.2.4  Usage
+
+#### 1.2.4 Usage
 
 ```
 usage: java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar -query <QUERY> -host <DREMIO_HOSTNAME> -port <DREMIO_PORT> -user <DREMIO_USER> -pass <DREMIO_PASSWORD>
@@ -86,4 +95,5 @@ optional arguments:
 ```
 
 ## Forums
+
 If you have any questions, click [here](https://community.dremio.com/) to join our forums.
