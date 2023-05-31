@@ -63,8 +63,7 @@ def _encode_key_value(property: dict) -> tuple:
 
 
 def convert_session_properties(session_properties: list[dict]) -> list[tuple]:
-    converted_properties = list(map(_encode_key_value, session_properties))
-    return converted_properties
+    return list(map(_encode_key_value, session_properties))
 
 
 def parse_config_file(config_rel_path: str):
