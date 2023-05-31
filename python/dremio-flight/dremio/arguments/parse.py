@@ -58,12 +58,12 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def _encode_key_value(property: dict) -> tuple:
+    return tuple(map(lambda x: x.encode("utf_8"), list(property.items())[0]))
+
+
 def convert_session_properties(session_properties: list[dict]) -> list[tuple]:
-    converted_properties = []
-    for prop in session_properties:
-        converted_properties += [
-            (k.encode("utf-8"), v.encode("utf-8")) for k, v in prop.items()
-        ]
+    converted_properties = list(map(_encode_key_value, session_properties))
     return converted_properties
 
 
