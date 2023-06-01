@@ -79,7 +79,7 @@ def parse_config_file(config_rel_path: str):
             raise exc
 
 
-def _check_option_type_is_expected(config_item):
+def _is_option_type_valid_or_throw(config_item):
     key = config_item[0]
     value = config_item[1]
     expected_type_for_key = options_default_validator["type"].get(key)
@@ -93,7 +93,7 @@ def _check_option_type_is_expected(config_item):
 
 
 def validate_options_type(config: dict):
-    list(filter(_check_option_type_is_expected, config.items()))
+    list(filter(_is_option_type_valid_or_throw, config.items()))
 
 
 def validate_required_options(config: dict):
