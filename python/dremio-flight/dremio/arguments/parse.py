@@ -79,18 +79,21 @@ def parse_config_file(config_rel_path: str):
             raise exc
 
 
+def _check_option_type_is_expected(config_item):
+    key = config_item[0]
+    value = config_item[1]
+    expected_type_for_key = options_default_validator["type"].get(key)
+
+    if isinstance(value, expected_type_for_key):
+        return True
+    else:
+        raise TypeError(
+            f"The expected type for '{key}' is {expected_type_for_key}. You input '{value}' which is {type(value)}."
+        )
+
+
 def validate_options_type(config: dict):
-    for key in config:
-        value = config[key]
-        expected_type_for_key = options_default_validator["type"].get(key)
-
-        if expected_type_for_key is None:
-            continue
-
-        if not isinstance(value, expected_type_for_key):
-            raise TypeError(
-                f"The expected type for {key} is {expected_type_for_key}. You input {value} which is {type(value)}."
-            )
+    list(filter(_check_option_type_is_expected, config.items()))
 
 
 def validate_required_options(config: dict):
