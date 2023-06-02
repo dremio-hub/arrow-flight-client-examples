@@ -1,0 +1,14 @@
+#hostname:
+#port:
+#username:
+#password:
+#token:
+
+#query:
+#tls:
+#disable_certificate_verification:
+#path_to_certs:
+#session_properties:
+#  - schema: Samples."samples.dremio.com"
+#  - <keep adding more session properties>
+#engine:

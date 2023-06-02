@@ -14,7 +14,6 @@
   limitations under the License.
 """
 import logging
-from argparse import Namespace
 from pyarrow import flight
 from dremio.middleware.auth import DremioClientAuthMiddlewareFactory
 from dremio.middleware.cookie import CookieMiddlewareFactory
@@ -24,19 +23,19 @@ logging.basicConfig(level=logging.INFO)
 
 
 class DremioFlightEndpointConnection:
-    def __init__(self, connection_args: Namespace) -> None:
-        self.hostname = connection_args.hostname
-        self.port = connection_args.port
-        self.username = connection_args.username
-        self.password = connection_args.password
-        self.token = connection_args.token
-        self.tls = connection_args.tls
-        self.disable_certificate_verification = (
-            connection_args.disable_certificate_verification
+    def __init__(self, connection_args: dict) -> None:
+        self.hostname = connection_args.get("hostname")
+        self.port = connection_args.get("port")
+        self.username = connection_args.get("username")
+        self.password = connection_args.get("password")
+        self.token = connection_args.get("token")
+        self.tls = connection_args.get("tls")
+        self.disable_certificate_verification = connection_args.get(
+            "disable_certificate_verification"
         )
-        self.path_to_certs = connection_args.path_to_certs
-        self.session_properties = connection_args.session_properties
-        self.engine = connection_args.engine
+        self.path_to_certs = connection_args.get("path_to_certs")
+        self.session_properties = connection_args.get("session_properties")
+        self.engine = connection_args.get("engine")
         self._set_headers()
 
     def connect(self) -> flight.FlightClient:
@@ -52,18 +51,18 @@ class DremioFlightEndpointConnection:
                 tls_args = self._set_tls_connection_args()
                 scheme = "grpc+tls"
 
-            if self.token:
-                return self._connect_with_pat(
+            if self.username and (self.password or self.token):
+                return self._connect_to_software(
                     tls_args, client_cookie_middleware, scheme
                 )
 
-            if self.username and self.password:
-                return self._connect_with_password(
+            elif self.token:
+                return self._connect_to_cloud(
                     tls_args, client_cookie_middleware, scheme
                 )
 
             raise ConnectionError(
-                "Username/password or PAT/Auth token must be supplied."
+                "username+password or username+token or token must be supplied."
             )
 
         except Exception:
@@ -72,7 +71,7 @@ class DremioFlightEndpointConnection:
             )
             raise
 
-    def _connect_with_pat(
+    def _connect_to_cloud(
         self,
         tls_args: dict,
         client_cookie_middleware: CookieMiddlewareFactory,
@@ -88,7 +87,7 @@ class DremioFlightEndpointConnection:
         logging.info("Authentication skipped until first request")
         return client
 
-    def _connect_with_password(
+    def _connect_to_software(
         self,
         tls_args: dict,
         client_cookie_middleware: CookieMiddlewareFactory,
@@ -102,8 +101,11 @@ class DremioFlightEndpointConnection:
         )
 
         # Authenticate with the server endpoint.
+        password_or_token = self.password if self.password else self.token
         bearer_token = client.authenticate_basic_token(
-            self.username, self.password, flight.FlightCallOptions(headers=self.headers)
+            self.username,
+            password_or_token,
+            flight.FlightCallOptions(headers=self.headers),
         )
         logging.info("Authentication was successful")
         self.headers.append(bearer_token)

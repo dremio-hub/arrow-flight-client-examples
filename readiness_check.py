@@ -23,11 +23,13 @@ import time
 
 import requests
 
+
 def timeout(seconds, error=os.strerror(errno.ETIMEDOUT)):
     """
     A timeout decorator for readiness check.
     This function returns a decorator that wraps the function to timeout.
     """
+
     def decorator(func):
         def timeout_handler(signum, frame):
             raise TimeoutError(error)
@@ -45,6 +47,7 @@ def timeout(seconds, error=os.strerror(errno.ETIMEDOUT)):
 
     return decorator
 
+
 # Set timeout to 5 minutes
 @timeout(300)
 def wait_for_ready():
@@ -53,12 +56,13 @@ def wait_for_ready():
     """
     while 1:
         try:
-            _r = requests.get('http://localhost:9047/')
+            _r = requests.get("http://localhost:9047/")
             if _r.status_code == 200:
                 break
         except Exception:
             time.sleep(5)
     print("Dremio server responded with status code 200. Proceeding to testing.")
+
 
 # Poll for Dremio's readiness.
 wait_for_ready()
