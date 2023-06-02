@@ -21,15 +21,17 @@ This process is the same if you launched the Dremio locally or via docker.
 1. Install [Python 3](https://www.python.org/downloads/)
 1. Download and install the [dremio-flight-endpoint whl file](https://github.com/dremio-hub/arrow-flight-client-examples/releases)
     - `python -m pip install <PATH TO WHEEL>`
-1. Create a file named `config.yaml` in the `arrow-flight-client-examples/python` directory. Copy the contents of `arrow-flight-client-examples/python/config_template.yaml` into `config.yaml`.
-1. Uncomment the options in `config.yaml` as needed, appending the argument after the key. ie. `username: my_username`. You can either delete the options that are not being used or leave them commented.
-    - e.g. If you are connecting to a local instance of Dremio, your config file would look like:
+1. Create a local folder to store the client file and config file.
+    1. Create a file named `example.py` in created folder. Copy the contents of `arrow-flight-client-examples/python/example.py` into `example.py`.
+    1. Create a file named `config.yaml` in created folder. Copy the contents of `arrow-flight-client-examples/python/config_template.yaml` into `config.yaml`.
+    1. Uncomment the options in `config.yaml` as needed, appending the argument after the key. ie. `username: my_username`. You can either delete the options that are not being used or leave them commented.
+        - e.g. If you are connecting to a local instance of Dremio, your config file would look like:
         ```
         username: my_username
         password: my_password
         query: SELECT 1
         ```
-1. Run the Python Arrow Flight Client by navigating to the `arrow-flight-client-examples/python` directory and running the command `python3 example.py`.
+1. Run the Python Arrow Flight Client by navigating to the created folder in the previous step and running the command `python3 example.py`.
 
 ### 1.2 Query your dataset with arrow flight client in java
 
