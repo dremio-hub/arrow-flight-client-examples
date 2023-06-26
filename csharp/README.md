@@ -63,4 +63,3 @@ The following example is how to run a Dremio Cloud query.  Dremio Cloud has the 
 -  Only Personal access token authentication supported
 - `dotnet run -protocol https -host data.dremio.cloud -port 443 -pat abc123abc123abc123abc123 -query "SELECT job_id, status, query from sys.project.jobs"`
 
-
