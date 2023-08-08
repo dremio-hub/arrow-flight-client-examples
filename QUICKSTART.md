@@ -4,7 +4,7 @@
 
 -   Documentation is available [here](https://docs.dremio.com).
 
--   QUICKSTART at Dremio [Here](https://docs.dremio.com/quickstart/).
+-   QUICKSTART at Dremio [Here](https://docs.dremio.com/current/get-started/).
 
 ---
 
