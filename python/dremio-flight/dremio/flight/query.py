@@ -55,13 +55,14 @@ class DremioFlightEndpointQuery:
 
     def _get_chunks(self, reader: flight.FlightStreamReader) -> DataFrame:
         dataframe = DataFrame()
+        chunks = []
         while True:
             try:
                 flight_batch = reader.read_chunk()
                 record_batch = flight_batch.data
                 data_to_pandas = record_batch.to_pandas()
-                dataframe = concat([dataframe, data_to_pandas])
+                chunks.append(data_to_pandas)
             except StopIteration:
                 break
 
-        return dataframe
+        return concat(chunks)
