@@ -64,5 +64,5 @@ class DremioFlightEndpointQuery:
                 chunks.append(data_to_pandas)
             except StopIteration:
                 break
-        
+
         return concat(chunks)
