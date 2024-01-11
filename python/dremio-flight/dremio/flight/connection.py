@@ -99,7 +99,6 @@ class DremioFlightEndpointConnection:
             middleware=[client_auth_middleware, client_cookie_middleware],
             **tls_args,
         )
-
         # Authenticate with the server endpoint.
         password_or_token = self.password if self.password else self.token
         bearer_token = client.authenticate_basic_token(

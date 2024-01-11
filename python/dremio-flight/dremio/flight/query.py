@@ -32,7 +32,7 @@ class DremioFlightEndpointQuery:
         self.client = client
         self.headers = getattr(connection, "headers")
 
-    def execute_query(self) -> DataFrame:
+    def get_reader(self) -> flight.FlightStreamReader:
         try:
             options = flight.FlightCallOptions(headers=self.headers)
             # Get the FlightInfo message to retrieve the Ticket corresponding
@@ -43,25 +43,11 @@ class DremioFlightEndpointQuery:
             logging.info("GetFlightInfo was successful")
             logging.debug("Ticket: %s", flight_info.endpoints[0].ticket)
 
-            # Retrieve the result set as pandas DataFrame
-            reader = self.client.do_get(flight_info.endpoints[0].ticket, options)
-            return self._get_chunks(reader)
+            # Retrieve the reader
+            return self.client.do_get(flight_info.endpoints[0].ticket, options)
 
         except Exception:
             logging.exception(
                 "There was an error trying to get the data from the flight endpoint"
             )
             raise
-
-    def _get_chunks(self, reader: flight.FlightStreamReader) -> DataFrame:
-        dataframe = DataFrame()
-        while True:
-            try:
-                flight_batch = reader.read_chunk()
-                record_batch = flight_batch.data
-                data_to_pandas = record_batch.to_pandas()
-                dataframe = concat([dataframe, data_to_pandas])
-            except StopIteration:
-                break
-
-        return dataframe

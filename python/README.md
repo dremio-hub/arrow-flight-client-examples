@@ -180,4 +180,4 @@ _description:_ The specific engine to run against. Only applicable to Dremio Clo
 
 This lightweight Python client application connects to the Dremio Arrow Flight server endpoint. Developers can use token based or regular user credentials (username/password) for authentication. Please note username/password is not supported for Dremio Cloud. Dremio Cloud requires a token. Any datasets in Dremio that are accessible by the provided Dremio user can be queried. Developers can change settings by providing options in a config yaml file before running the client.
 
-Moreover, the tls option can be provided to establish an encrypted connection.
+The example includes a function called get_reader, which returns a FlightStreamReader. Users can choose to read the data based on the methods available in the [FlightStreamReader class](https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightStreamReader.html#pyarrow.flight.FlightStreamReader). In our example, we've decided to read the data into a Pandas dataframe. 

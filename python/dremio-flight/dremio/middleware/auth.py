@@ -48,7 +48,11 @@ class DremioClientAuthMiddleware(flight.ClientMiddleware):
         self.factory = factory
 
     def received_headers(self, headers):
+        if self.factory.call_credential:
+            return
+
         auth_header_key = "authorization"
+
         authorization_header = reduce(
             lambda result, header: header[1]
             if header[0] == auth_header_key
