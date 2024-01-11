@@ -12,8 +12,8 @@ class DremioFlightEndpoint:
     def connect(self) -> flight.FlightClient:
         return self.dremio_flight_conn.connect()
 
-    def execute_query(self, flight_client: flight.FlightClient) -> DataFrame:
+    def get_reader(self, client: flight.FlightClient) -> flight.FlightStreamReader:
         dremio_flight_query = DremioFlightEndpointQuery(
-            self.connection_args.get("query"), flight_client, self.dremio_flight_conn
+            self.connection_args.get("query"), client, self.dremio_flight_conn
         )
-        return dremio_flight_query.execute_query()
+        return dremio_flight_query.get_reader()

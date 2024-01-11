@@ -15,7 +15,7 @@
 """
 from argparse import Namespace
 from numpy import array, array_equal
-from pyarrow.flight import FlightUnauthenticatedError, FlightUnavailableError
+from pyarrow.flight import FlightUnauthenticatedError, FlightInternalError
 from dotenv import load_dotenv
 import certifi
 import os
@@ -79,7 +79,7 @@ def test_simple_query():
     dremio_flight_query = DremioFlightEndpointQuery(
         args_dict["query"], flight_client, dremio_flight_conn
     )
-    dataframe = dremio_flight_query.execute_query()
+    dataframe = dremio_flight_query.get_reader().read_pandas()
     dataframe_arr = dataframe.to_numpy()
     expected_arr = array([[1, 2, 3]])
     assert array_equal(dataframe_arr, expected_arr)
@@ -96,7 +96,7 @@ def test_tls():
     dremio_flight_query = DremioFlightEndpointQuery(
         args_dict_ssl["query"], flight_client, dremio_flight_conn
     )
-    dataframe = dremio_flight_query.execute_query()
+    dataframe = dremio_flight_query.get_reader().read_pandas()
     dataframe_arr = dataframe.to_numpy()
     expected_arr = array([[1, 2, 3]])
     assert array_equal(dataframe_arr, expected_arr)
@@ -110,7 +110,7 @@ def test_bad_hostname():
     args_dict_bad_hostname["hostname"] = "ha-ha!"
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_hostname)
-    with pytest.raises(FlightUnavailableError):
+    with pytest.raises(FlightInternalError):
         dremio_flight_conn.connect()
 
 
@@ -122,7 +122,7 @@ def test_bad_port():
     args_dict_bad_port["port"] = 12345
 
     dremio_flight_conn = DremioFlightEndpointConnection(args_dict_bad_port)
-    with pytest.raises(FlightUnavailableError):
+    with pytest.raises(FlightInternalError):
         dremio_flight_conn.connect()
 
 

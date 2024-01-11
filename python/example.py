@@ -26,8 +26,8 @@ if __name__ == "__main__":
     # Connect to Dremio Arrow Flight server endpoint.
     flight_client = dremio_flight_endpoint.connect()
 
-    # Execute query
-    dataframe = dremio_flight_endpoint.execute_query(flight_client)
+    # Get reader
+    reader = dremio_flight_endpoint.get_reader(flight_client)
 
-    # Print out the data
-    print(dataframe)
+    # Print out the data as a dataframe
+    print(reader.read_pandas())
