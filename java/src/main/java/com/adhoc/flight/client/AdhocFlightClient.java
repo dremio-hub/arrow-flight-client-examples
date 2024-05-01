@@ -25,12 +25,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -38,12 +41,15 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.client.ClientCookieMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
+import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
@@ -61,15 +67,19 @@ import com.google.common.base.Strings;
  * CredentialCallOption with a bearer token for subsequent FlightRPC requests.
  */
 public final class AdhocFlightClient implements AutoCloseable {
+  public static final String PROJECT_ID_KEY = "project_id";
+
   private final FlightClient client;
   private final BufferAllocator allocator;
   private final CredentialCallOption bearerToken;
+  private final String projectId;
 
   AdhocFlightClient(final FlightClient client, final BufferAllocator allocator,
-                    final CredentialCallOption bearerToken) {
+                    final CredentialCallOption bearerToken, final String projectId) {
     this.client = requireNonNull(client);
     this.allocator = requireNonNull(allocator);
     this.bearerToken = requireNonNull(bearerToken);
+    this.projectId = projectId;
   }
 
   /**
@@ -96,6 +106,7 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                      String keyStorePath,
                                                      String keyStorePass,
                                                      boolean disableServerVerification,
+                                                     String projectId,
                                                      HeaderCallOption clientProperties,
                                                      List<FlightClientMiddleware.Factory> middlewares)
       throws Exception {
@@ -126,6 +137,7 @@ public final class AdhocFlightClient implements AutoCloseable {
       host, port,
       user, pass,
       patOrAuthToken,
+      projectId,
       clientProperties,
       flightClientBuilder);
   }
@@ -148,6 +160,7 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                  String host, int port,
                                                  String user, String pass,
                                                  String patOrAuthToken,
+                                                 String projectId,
                                                  HeaderCallOption clientProperties,
                                                  List<FlightClientMiddleware.Factory> middlewares) {
 
@@ -165,6 +178,7 @@ public final class AdhocFlightClient implements AutoCloseable {
       host, port,
       user, pass,
       patOrAuthToken,
+      projectId,
       clientProperties,
       flightClientBuilder);
   }
@@ -173,6 +187,7 @@ public final class AdhocFlightClient implements AutoCloseable {
                                                    String host, int port,
                                                    String user, String pass,
                                                    String patOrAuthToken,
+                                                   String projectId,
                                                    HeaderCallOption clientProperties,
                                                    FlightClient.Builder builder) {
 
@@ -217,7 +232,8 @@ public final class AdhocFlightClient implements AutoCloseable {
     return new AdhocFlightClient(
       flightClient,
       allocator,
-      credentials);
+      credentials,
+      projectId);
   }
 
   /**
@@ -321,6 +337,30 @@ public final class AdhocFlightClient implements AutoCloseable {
     return client.getStream(flightInfo.getEndpoints().get(0).getTicket(), options);
   }
 
+  private Action createSetSessionOptionAction(String key, String value) {
+    final Flight.SessionOptionValue sessionOptionValue =
+        Flight.SessionOptionValue.newBuilder().setStringValue(value).build();
+    final byte[] actionSetSessionOptionsRequestBytes =
+        Flight.SetSessionOptionsRequest.newBuilder()
+            .putSessionOptions(key, sessionOptionValue)
+            .build()
+            .toByteArray();
+    return new Action("set-session-option", actionSetSessionOptionsRequestBytes);
+  }
+
+  private Action createCloseSessionAction() {
+    return new Action(
+        "close-session", Flight.CloseSessionRequest.getDefaultInstance().toByteArray());
+  }
+
+  public void doAction(Action action, CallOption... options) {
+    client.setSessionOptions()
+    for (Iterator<Result> it = client.doAction(action, options); it.hasNext(); ) {
+      it.next();
+    }
+
+  }
+
   /**
    * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
    * provided SQL query.
@@ -336,12 +376,18 @@ public final class AdhocFlightClient implements AutoCloseable {
                        final @Nullable File fileToSaveTo,
                        final boolean printToConsole) throws Exception {
 
+    if (projectId != null) {
+      doAction(createSetSessionOptionAction(PROJECT_ID_KEY, projectId), bearerToken, headerCallOption);
+    }
     final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
     try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
          final OutputStream outputStream =
              fileToSaveTo == null ? null : new BufferedOutputStream(new FileOutputStream(fileToSaveTo))) {
       writeToOutputStream(
           flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : null);
+    }
+    if (projectId != null) {
+      doAction(createCloseSessionAction(), headerCallOption);
     }
   }
 

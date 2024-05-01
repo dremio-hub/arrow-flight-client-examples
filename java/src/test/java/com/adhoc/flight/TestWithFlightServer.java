@@ -95,7 +95,7 @@ public class TestWithFlightServer {
 
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
 
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, callOption, null);
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, null, callOption, null);
 
     final Map<String, String> receivedHeaders = headerServerMiddlewareFactory.headers;
     EXPECTED_HEADERS_USER_PASS.forEach( (key, value) -> {
@@ -122,7 +122,7 @@ public class TestWithFlightServer {
 
     final HeaderCallOption callOption = new HeaderCallOption(callHeaders);
 
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, null, PAT, callOption, null);
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, null, PAT, null, callOption, null);
 
     final Map<String, String> receivedHeaders = headerServerMiddlewareFactory.headers;
     EXPECTED_HEADERS_PAT.forEach( (key, value) -> {

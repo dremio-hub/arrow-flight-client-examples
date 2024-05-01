@@ -119,6 +119,10 @@ public class QueryRunner {
         description = "The specific engine to run against.")
     public String engine;
 
+    @Parameter(names = {"-projectId", "--projectId"},
+        description = "Dremio Cloud project to connect to.")
+    public String projectId;
+
     @Parameter(names = {"-sp", "--sessionProperty"},
         description = "Key value pairs of SessionProperty, " +
           "example: -sp schema='Samples.\"samples.dremio.com\"' -sp key=value",
@@ -330,6 +334,7 @@ public class QueryRunner {
           ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
           ARGUMENTS.disableServerVerification,
+          ARGUMENTS.projectId,
           clientProperties,
           null);
     } else {
@@ -337,6 +342,7 @@ public class QueryRunner {
           ARGUMENTS.host, ARGUMENTS.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.patOrAuthToken,
+          ARGUMENTS.projectId,
           clientProperties,
           null);
     }

@@ -121,7 +121,7 @@ public class TestAdhocFlightClient {
                                        String user, String pass,
                                        String patOrAuthToken,
                                        HeaderCallOption clientProperties) {
-    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
+    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken, null,
         clientProperties, null);
   }
 
@@ -141,7 +141,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties)
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null,
-      null, DISABLE_SERVER_VERIFICATION, clientProperties, null);
+      null, DISABLE_SERVER_VERIFICATION, null, clientProperties, null);
   }
 
   @Test
@@ -269,7 +269,7 @@ public class TestAdhocFlightClient {
 
     flightClientMiddlewareList.add(clientFactory);
 
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null,
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, null,
       callOption, flightClientMiddlewareList);
 
     EXPECTED_HEADERS.forEach( (key, value) -> {
