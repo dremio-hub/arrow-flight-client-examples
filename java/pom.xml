@@ -11,8 +11,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <arrow.version>11.0.0-20240312005600-b6b322df1a-dremio</arrow.version>
-        <dep.guava.version>33.1.0-jre</dep.guava.version>
+        <arrow.version>16.1.0-20240904212746-09241242ea-dremio</arrow.version>
+        <dep.guava.version>33.3.0-jre</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
 
@@ -35,11 +35,6 @@
                     <artifactId>netty-transport-native-epoll</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-grpc</artifactId>
-            <version>${arrow.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
