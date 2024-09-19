@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
@@ -356,6 +357,59 @@ public final class AdhocFlightClient implements AutoCloseable {
    * @param headerCallOption client properties to execute provided SQL query with.
    * @param fileToSaveTo     the file to which the binary data of the resulting {@link VectorSchemaRoot}
    *                         should be saved.
+   * @param printToConsole   true - query results will be printed to console. false - no output.
+   * @throws Exception if an error occurs during query execution.
+   */
+  private void runBasicQuery(final String query,
+      final @Nullable HeaderCallOption headerCallOption,
+      final @Nullable File fileToSaveTo,
+      final boolean printToConsole) throws Exception {
+
+    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
+    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
+        final OutputStream outputStream =
+            fileToSaveTo == null ? null : new BufferedOutputStream(
+                Files.newOutputStream(fileToSaveTo.toPath()))) {
+      writeToOutputStream(
+          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : null);
+    }
+  }
+
+  /**
+   * A wrapper to create a flight session with associated session options around
+   * the associated callable.
+   * @param callable a call to execute flightthat session options will surround
+   * @param <V> type of the callable return value
+   */
+  private <V> V runWithSessionOptions(final @Nullable HeaderCallOption headerCallOption,
+      Callable<V> callable) throws Exception {
+    SetSessionOptionsResult res1 = client.setSessionOptions(
+        createSetSessionOption(PROJECT_ID_KEY, projectId), bearerToken, headerCallOption);
+
+    if (res1.hasErrors()) {
+      // A session is only created if the session options are error free.
+      Map<String, SetSessionOptionsResult.Error> errors = res1.getErrors();
+      StringBuilder sb = new StringBuilder();
+      for (Entry<String, Error> error : errors.entrySet()) {
+        sb.append(error.toString() + "/n");
+      }
+      throw new RuntimeException(sb.toString());
+    }
+
+    callable.call();
+
+    client.closeSession(new CloseSessionRequest(), bearerToken, headerCallOption);
+    return null;
+  }
+
+  /**
+   * Make FlightRPC requests to the Dremio Flight Server Endpoint to retrieve results of the
+   * provided SQL query.
+   *
+   * @param query            the SQL query to execute.
+   * @param headerCallOption client properties to execute provided SQL query with.
+   * @param fileToSaveTo     the file to which the binary data of the resulting {@link VectorSchemaRoot}
+   *                         should be saved.
    * @throws Exception if an error occurs during query execution.
    */
   public void runQuery(final String query,
@@ -364,25 +418,13 @@ public final class AdhocFlightClient implements AutoCloseable {
                        final boolean printToConsole) throws Exception {
 
     if (projectId != null) {
-      SetSessionOptionsResult res1 = client.setSessionOptions(
-          createSetSessionOption(PROJECT_ID_KEY, projectId), bearerToken, headerCallOption);
-      if (res1.hasErrors()) {
-        Map<String, SetSessionOptionsResult.Error> errors = res1.getErrors();
-        for (Entry<String, Error> error : errors.entrySet()) {
-          System.out.println(error.toString());
-        }
-      }
-    }
-    final FlightInfo flightInfo = getInfo(query, bearerToken, headerCallOption);
-    try (final FlightStream flightStream = getStream(flightInfo, bearerToken, headerCallOption);
-         final OutputStream outputStream =
-             fileToSaveTo == null ? null : new BufferedOutputStream(
-                 Files.newOutputStream(fileToSaveTo.toPath()))) {
-      writeToOutputStream(
-          flightStream, allocator, outputStream, printToConsole ? QueryUtils::printResults : null);
-    }
-    if (projectId != null) {
-      client.closeSession(new CloseSessionRequest(), bearerToken, headerCallOption);
+      runWithSessionOptions(headerCallOption,
+          () -> {
+            runBasicQuery(query, headerCallOption, fileToSaveTo, printToConsole);
+            return null;
+          });
+    } else {
+      runBasicQuery(query, headerCallOption, fileToSaveTo, printToConsole);
     }
   }
 

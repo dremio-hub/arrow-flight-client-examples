@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <arrow.version>16.1.0-20240904212746-09241242ea-dremio</arrow.version>
+        <arrow.version>17.0.0</arrow.version>
         <dep.guava.version>33.3.0-jre</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
@@ -67,16 +67,6 @@
         </dependency>
 
     </dependencies>
-
-    <repositories>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>dremio-public</id>
-            <url>https://repo.drem.io/content/repositories/internal-releases/</url>
-        </repository>
-    </repositories>
 
     <build>
         <plugins>
