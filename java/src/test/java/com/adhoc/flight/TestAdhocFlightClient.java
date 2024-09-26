@@ -21,23 +21,31 @@ import static com.adhoc.flight.QueryRunner.KEY_ROUTING_QUEUE;
 import static com.adhoc.flight.QueryRunner.KEY_ROUTING_TAG;
 import static com.adhoc.flight.QueryRunner.KEY_SCHEMA;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.HeaderCallOption;
+import org.apache.arrow.flight.SessionOptionValue;
+import org.apache.arrow.flight.SetSessionOptionsRequest;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -47,6 +55,10 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.runners.MockitoJUnitRunner;
 
 import com.adhoc.flight.client.AdhocFlightClient;
 import com.google.common.base.Strings;
@@ -54,6 +66,7 @@ import com.google.common.base.Strings;
 /**
  * Test Adhoc Flight Client with a live Dremio instance.
  */
+@RunWith(MockitoJUnitRunner.class)
 public class TestAdhocFlightClient {
   private static final String HOST = "localhost";
   private static final int PORT = 32010;
@@ -76,7 +89,11 @@ public class TestAdhocFlightClient {
     }
   };
 
+  @InjectMocks
   private AdhocFlightClient client;
+
+  FlightClient flightClient = mock(FlightClient.class);
+
   private BufferAllocator allocator;
 
   @Before
@@ -104,7 +121,7 @@ public class TestAdhocFlightClient {
    * @param patOrAuthToken  the personal access token or OAuth2 token.
    */
   private void createBasicFlightClient(String host, int port, String user, String pass, String patOrAuthToken) {
-    createBasicFlightClient(host, port, user, pass, patOrAuthToken, null);
+    createBasicFlightClient(host, port, user, pass, patOrAuthToken, null, null);
   }
 
   /**
@@ -120,9 +137,10 @@ public class TestAdhocFlightClient {
   private void createBasicFlightClient(String host, int port,
                                        String user, String pass,
                                        String patOrAuthToken,
+                                       String projectId,
                                        HeaderCallOption clientProperties) {
-    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken, null,
-        clientProperties, null);
+    client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
+        projectId, clientProperties, null);
   }
 
   /**
@@ -173,7 +191,7 @@ public class TestAdhocFlightClient {
     final HeaderCallOption clientProperties = new HeaderCallOption(callHeaders);
 
     // Create FlightClient connecting to Dremio.
-    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null, clientProperties);
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null, null, clientProperties);
 
     // Create table
     client.runQuery(CREATE_TABLE, null, null, false);
@@ -253,6 +271,25 @@ public class TestAdhocFlightClient {
         () -> createBasicFlightClient(HOST, PORT, null, PASSWORD, null));
 
     assertTrue(exception.getMessage().contains("Username must be defined for password authentication"));
+  }
+
+  @Test
+  public void testSetSessionOptions() throws Exception {
+    final String mockProjectId = UUID.randomUUID().toString();
+    // Create FlightClient connecting to Dremio.
+    createBasicFlightClient(HOST, PORT, USERNAME, PASSWORD, null, mockProjectId, null);
+
+    // Select
+    client.runQuery(SIMPLE_QUERY, null, null, false);
+    final ArgumentCaptor<SetSessionOptionsRequest> argumentCaptor =
+        ArgumentCaptor.forClass(SetSessionOptionsRequest.class);
+    verify(flightClient).setSessionOptions(argumentCaptor.capture(), any(), any());
+    final List<SetSessionOptionsRequest> capturedRequest = argumentCaptor.getAllValues();
+    assertFalse(capturedRequest.isEmpty());
+    for (SetSessionOptionsRequest request : capturedRequest) {
+      final Map<String, SessionOptionValue> entry = request.getSessionOptions();
+      assertTrue(entry.containsKey(AdhocFlightClient.PROJECT_ID_KEY));
+    }
   }
 
   @Test

@@ -343,9 +343,9 @@ public final class AdhocFlightClient implements AutoCloseable {
 
   private SetSessionOptionsRequest createSetSessionOption(String key, String value) {
     final SetSessionOptionsRequest setSessionOptionRequest =
-        new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
-          .put(key, SessionOptionValueFactory.makeSessionOptionValue(value))
-          .build());
+        new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>
+                builder().put(key,
+                              SessionOptionValueFactory.makeSessionOptionValue(value)).build());
     return setSessionOptionRequest;
   }
 
@@ -383,7 +383,7 @@ public final class AdhocFlightClient implements AutoCloseable {
    */
   private <V> V runWithSessionOptions(final @Nullable HeaderCallOption headerCallOption,
       Callable<V> callable) throws Exception {
-    SetSessionOptionsResult res1 = client.setSessionOptions(
+    final SetSessionOptionsResult res1 = client.setSessionOptions(
         createSetSessionOption(PROJECT_ID_KEY, projectId), bearerToken, headerCallOption);
 
     if (res1.hasErrors()) {
