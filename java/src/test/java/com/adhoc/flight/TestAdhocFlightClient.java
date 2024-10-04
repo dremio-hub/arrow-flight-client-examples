@@ -80,7 +80,6 @@ public class TestAdhocFlightClient {
   public static final String DEFAULT_ROUTING_QUEUE = "Low Cost User Queries";
 
   public static final String CREATE_TABLE = "create table $scratch.simple_table as " + SIMPLE_QUERY;
-  public static final String CREATE_TABLE_NO_SCHEMA = "create table $scratch.simple_table as " + SIMPLE_QUERY;
   public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
   public static final String DROP_TABLE = "drop table $scratch.simple_table";
   public static final Map<String, String> EXPECTED_HEADERS = new HashMap<String, String>() {{
