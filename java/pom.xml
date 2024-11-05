@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <arrow.version>17.0.0</arrow.version>
+        <arrow.version>18.0.0</arrow.version>
         <dep.guava.version>33.3.0-jre</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
