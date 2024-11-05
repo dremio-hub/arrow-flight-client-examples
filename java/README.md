@@ -70,4 +70,7 @@ Arguments:
     -user, --username
       Dremio username.
       Defaults to "dremio".
+    -projectId, --projectId
+      Dremio Cloud project to connect to.
+      Default: default project for organization
 ```

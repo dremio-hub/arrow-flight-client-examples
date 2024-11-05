@@ -94,6 +94,9 @@ optional arguments:
   -user, --username
     Dremio username
     Default: dremio
+  -projectId, --projectId
+    Dremio Cloud project to connect to.
+    Default: default project for organization
 ```
 
 ## Forums
