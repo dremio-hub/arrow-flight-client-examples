@@ -29,5 +29,25 @@ if __name__ == "__main__":
     # Get reader
     reader = dremio_flight_endpoint.get_reader(flight_client)
 
-    # Print out the data as a dataframe
-    print(reader.read_pandas())
+    # OPTION 1: Read all data at once (suitable for smaller datasets)
+    # Uncomment this line if working with manageable data sizes.
+    # print(reader.read_pandas())
+
+    # OPTION 2: Read data in chunks using RecordBatchReader (recommended for large datasets)
+    # Uncomment the following block if working with large datasets
+
+    """
+    # Convert the reader to a RecordBatchReader to read data in chunks
+    record_batch_reader = reader.to_reader()
+
+    # Iterate through each RecordBatch and convert to pandas DataFrame
+    try:
+        for record_batch in record_batch_reader:
+            # Convert the current RecordBatch to a pandas DataFrame
+            df = record_batch.to_pandas()
+            # Process or accumulate the DataFrame as needed
+            print(df)  # For demonstration, replace with the desired processing
+    except StopIteration:
+        # Raised when all data has been read
+        print("All data successfully loaded.")
+    """
