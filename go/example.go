@@ -16,11 +16,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"log"
 	"net"
 
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/docopt/docopt-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -33,7 +34,7 @@ const usage = `Dremio Client Example.
 Usage:
   example -h | --help
   example [--host=<hostname>] [--port=<port>] (--user=<username> --pass=<password> | --pat=<pat>)
-          [--tls] [--certs=<path>] [--query <query>]
+          [--tls] [--certs=<path>] [--query <query>] [--project_id=<project_id>]
 
 Options:
   -h --help           Show this help.
@@ -44,19 +45,21 @@ Options:
   --pat=<pat>         Dremio personal access token
   --query <query>     SQL Query to test.
   --tls               Enable encrypted connection.
-  --certs=<path>      Path to trusted certificates for encrypted connection.`
+  --certs=<path>      Path to trusted certificates for encrypted connection.
+  --project_id=<project_id>   Dremio project ID`
 
 func main() {
 	args, err := docopt.ParseDoc(usage)
 	var config struct {
-		Host  string
-		Port  string
-		Pat   string
-		User  string
-		Pass  string
-		Query string
-		TLS   bool `docopt:"--tls"`
-		Certs string
+		Host      string
+		Port      string
+		Pat       string
+		User      string
+		Pass      string
+		Query     string
+		TLS       bool `docopt:"--tls"`
+		Certs     string
+		ProjectID string `docopt:"--project_id"`
 	}
 	if err != nil {
 		log.Fatalf("error parsing arguments: %v", err)
@@ -118,13 +121,27 @@ func main() {
 		log.Println("[INFO] Authentication was successful.")
 	}
 
+	// If project_id is provided, set it in session options
+	if config.ProjectID != "" {
+		log.Println("[INFO] Project ID detected, adding it to sessions options.")
+		err = setSessionOptions(ctx, client, config.ProjectID)
+		if err != nil {
+			log.Fatalf("Failed to set session options: %v", err)
+		}
+
+		// Close the session once the query is done
+		defer client.CloseSession(ctx, &flight.CloseSessionRequest{})
+	} else {
+		log.Println("[INFO] No project_id provided. Proceeding without it.")
+	}
+
 	if config.Query == "" {
 		return
 	}
 
 	// Once successful, the context object now contains the credentials, use it for subsequent calls.
 	desc := &flight.FlightDescriptor{
-		Type: flight.FlightDescriptor_CMD,
+		Type: flightgen.FlightDescriptor_CMD,
 		Cmd:  []byte(config.Query),
 	}
 	log.Println("[INFO] Query:", config.Query)
@@ -170,4 +187,25 @@ func main() {
 		defer rec.Release()
 		log.Println(rec)
 	}
+}
+
+func setSessionOptions(ctx context.Context, client flight.Client, projectID string) error {
+	projectIdSessionOption, err := flight.NewSessionOptionValue(projectID)
+	if err != nil {
+		return fmt.Errorf("failed to create session option: %v", err)
+	}
+
+	sessionOptionsRequest := flight.SetSessionOptionsRequest{
+		SessionOptions: map[string]*flight.SessionOptionValue{
+			"project_id": &projectIdSessionOption,
+		},
+	}
+
+	_, err = client.SetSessionOptions(ctx, &sessionOptionsRequest)
+	if err != nil {
+		return fmt.Errorf("failed to set session options: %v", err)
+	}
+
+	log.Printf("[INFO] Session options set with project_id: %s", projectID)
+	return nil
 }
