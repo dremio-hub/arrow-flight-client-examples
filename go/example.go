@@ -116,25 +116,23 @@ func main() {
 	if config.Pat != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
 		log.Println("[INFO] Using PAT.")
+
+		// If project_id is provided, set it in session options
+		if config.ProjectID != "" {
+			log.Println("[INFO] Project ID added to sessions options.")
+			err = setSessionOptions(ctx, client, config.ProjectID)
+			if err != nil {
+				log.Printf("Failed to set session options: %v", err)
+			}
+
+			// Close the session once the query is done
+			defer client.CloseSession(ctx, &flight.CloseSessionRequest{})
+		}
 	} else {
 		if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			log.Fatal(err)
 		}
 		log.Println("[INFO] Authentication was successful.")
-	}
-
-	// If project_id is provided, set it in session options
-	if config.ProjectID != "" {
-		log.Println("[INFO] Project ID detected, adding it to sessions options.")
-		err = setSessionOptions(ctx, client, config.ProjectID)
-		if err != nil {
-			log.Fatalf("Failed to set session options: %v", err)
-		}
-
-		// Close the session once the query is done
-		defer client.CloseSession(ctx, &flight.CloseSessionRequest{})
-	} else {
-		log.Println("[INFO] No project_id provided. Proceeding without it.")
 	}
 
 	if config.Query == "" {
@@ -205,7 +203,8 @@ func setSessionOptions(ctx context.Context, client flight.Client, projectID stri
 
 	_, err = client.SetSessionOptions(ctx, &sessionOptionsRequest)
 	if err != nil {
-		return fmt.Errorf("failed to set session options: %v", err)
+		log.Printf("failed to set session options: %v", err)
+		return nil
 	}
 
 	log.Printf("[INFO] Session options set with project_id: %s", projectID)

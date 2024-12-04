@@ -42,21 +42,50 @@ func TestDremio(t *testing.T) {
 [INFO] GetSchema was successful.
 [INFO] Schema: schema:
   fields: 3
-    - EXPR$0: type=int64, nullable
-    - EXPR$1: type=int64, nullable
-    - EXPR$2: type=int64, nullable
+    - EXPR$0: type=int32, nullable
+        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
+    - EXPR$1: type=int32, nullable
+        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
+    - EXPR$2: type=int32, nullable
+        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
 [INFO] GetFlightInfo was successful.
 [INFO] Reading query results from dremio.
 record:
   schema:
   fields: 3
-    - EXPR$0: type=int64, nullable
-    - EXPR$1: type=int64, nullable
-    - EXPR$2: type=int64, nullable
+    - EXPR$0: type=int32, nullable
+    - EXPR$1: type=int32, nullable
+    - EXPR$2: type=int32, nullable
   rows: 1
   col[0][EXPR$0]: [1]
   col[1][EXPR$1]: [2]
   col[2][EXPR$2]: [3]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Args = append([]string{os.Args[0]}, tt.argList...)
+			var buf bytes.Buffer
+			log.SetFlags(0)
+			log.SetOutput(&buf)
+			defer log.SetOutput(os.Stderr)
+			main()
+
+			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
+		})
+	}
+}
+
+func TestAuthErrorDremio(t *testing.T) {
+	tests := []struct {
+		name     string
+		argList  []string
+		expected string
+	}{
+		// uses defaults for host and port, localhost and 32010
+		{"pat auth with project id", []string{"--pat=mypat", "--project_id=myprojectid"}, `[INFO] Using PAT.
+[INFO] Project ID added to sessions options.
+failed to set session options: rpc error: code = Unauthenticated desc =`},
 	}
 
 	for _, tt := range tests {
@@ -80,9 +109,9 @@ func TestErrors(t *testing.T) {
 		errorPrefix string
 	}{
 		{"bad hostname", []string{"--user=dremio", "--pass=dremio123", "--host=badHostNamE"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp: lookup badHostNamE:`},
+			`rpc error: code = Unavailable desc = name resolver error: produced zero addresses`},
 		{"bad port", []string{"--host=localhost", "--port=12345", "--user=dremio", "--pass=dremio123"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial tcp`},
+			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp [::1]:12345: connect: connection refused`},
 	}
 
 	for _, tt := range tests {
