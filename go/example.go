@@ -96,7 +96,9 @@ func main() {
 	client, err := flight.NewClientWithMiddleware(
 		net.JoinHostPort(config.Host, config.Port),
 		nil,
-		nil,
+		[]flight.ClientMiddleware{
+			flight.NewClientCookieMiddleware(),
+		},
 		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
