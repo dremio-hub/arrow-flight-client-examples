@@ -122,7 +122,7 @@ func main() {
 			log.Println("[INFO] Project ID added to sessions options.")
 			err = setSessionOptions(ctx, client, config.ProjectID)
 			if err != nil {
-				log.Printf("Failed to set session options: %v", err)
+				log.Fatalf("Failed to set session options: %v", err)
 			}
 
 			// Close the session once the query is done
@@ -203,8 +203,7 @@ func setSessionOptions(ctx context.Context, client flight.Client, projectID stri
 
 	_, err = client.SetSessionOptions(ctx, &sessionOptionsRequest)
 	if err != nil {
-		log.Printf("failed to set session options: %v", err)
-		return nil
+		return fmt.Errorf("failed to set session options: %v", err)
 	}
 
 	log.Printf("[INFO] Session options set with project_id: %s", projectID)
