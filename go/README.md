@@ -47,7 +47,7 @@ Options:
 
 ## Example
 
-If you a local instance of Dremio running on `localhost:32010` with a user `dremio` and password `dremio123`, 
+If you have a local instance of Dremio running on `localhost:32010` with a user `dremio` and password `dremio123`, 
 you can run the following command to connect and do a simple query:
 ```
 go run . --user=dremio --pass=dremio123 --query="SELECT * FROM (VALUES(1,2,3))" 
