@@ -29,8 +29,8 @@ Dremio Client Example.
 
 Usage:
   example -h | --help
-  example [--host=<hostname>] [--port=<port>] --user=<username> --pass=<password>
-          [--query=<query>] [--tls] [--certs=<path>]
+  example [--host=<hostname>] [--port=<port>] (--user=<username> --pass=<password> | --pat=<pat>)
+          [--tls] [--certs=<path>] [--query <query>] [--project_id=<project_id>]
 
 Options:
   -h --help           Show this help.
@@ -38,7 +38,26 @@ Options:
   --port=<port>       Dremio flight server port [default: 32010]
   --user=<username>   Dremio username
   --pass=<password>   Dremio password
-  --query=<query>     SQL Query to test.
+  --pat=<pat>         Dremio personal access token
+  --query <query>     SQL Query to test.
   --tls               Enable encrypted connection.
   --certs=<path>      Path to trusted certificates for encrypted connection.
+  --project_id=<project_id>   Dremio project ID
 ```
+
+## Example
+
+If you have a local instance of Dremio running on `localhost:32010` with a user `dremio` and password `dremio123`, 
+you can run the following command to connect and do a simple query:
+```
+go run . --user=dremio --pass=dremio123 --query="SELECT * FROM (VALUES(1,2,3))" 
+```
+To connect to a Dremio Cloud instance with data organized in different folders, you must use TLS and generate a Personal 
+Access Token (PAT) for authentication. If your data resides in a specific project, you can specify the project by 
+providing its project_id. If the project_id is not provided, the connection will use the default project.
+
+You can run a command similar to the following::
+```
+go run . --host=<cloud.hostname> --port=443 --query="SELECT * FROM \"Samples\".\"samples.dremio.com\".\"NYC-taxi-trips\"" --tls --pat=<mypat> --project_id=<myprojectid>
+```
+Here we're querying for a dataset called `NYC-taxi-trips`, in a source called `Samples`, in the `samples.dremio.com` folder.
