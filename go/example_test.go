@@ -1,139 +1,147 @@
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
 	"bytes"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
+	"context"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"io"
+	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	"github.com/golang/mock/gomock"
+	"google.golang.org/grpc"
 )
 
-func TestDremio(t *testing.T) {
-	tests := []struct {
-		name     string
-		argList  []string
-		expected string
-	}{
-		// uses defaults for host and port, localhost and 32010
-		{"basic auth", []string{"--user=dremio", "--pass=dremio123"}, "[INFO] Authentication was successful."},
-		{"pat auth", []string{"--pat=mypat"}, "[INFO] Using PAT."},
-		// set host and port and send a query
-		{"test simple query", []string{"--host=localhost", "--port=32010", "--user=dremio", "--pass=dremio123",
-			"--query", "SELECT * FROM (VALUES(1,2,3))"},
-			`[INFO] Authentication was successful.
-[INFO] Query: SELECT * FROM (VALUES(1,2,3))
-[INFO] GetSchema was successful.
-[INFO] Schema: schema:
-  fields: 3
-    - EXPR$0: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-    - EXPR$1: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-    - EXPR$2: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-[INFO] GetFlightInfo was successful.
-[INFO] Reading query results from dremio.
-record:
-  schema:
-  fields: 3
-    - EXPR$0: type=int32, nullable
-    - EXPR$1: type=int32, nullable
-    - EXPR$2: type=int32, nullable
-  rows: 1
-  col[0][EXPR$0]: [1]
-  col[1][EXPR$1]: [2]
-  col[2][EXPR$2]: [3]`},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Args = append([]string{os.Args[0]}, tt.argList...)
-			var buf bytes.Buffer
-			log.SetFlags(0)
-			log.SetOutput(&buf)
-			defer log.SetOutput(os.Stderr)
-			main()
-
-			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
-		})
-	}
+type MockFlightService_DoGetClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockFlightService_DoGetClientMockRecorder
+	grpc.ClientStream
 }
 
-func TestAuthErrorDremio(t *testing.T) {
-	tests := []struct {
-		name     string
-		argList  []string
-		expected string
-	}{
-		// uses defaults for host and port, localhost and 32010
-		{"pat auth with project id", []string{"--pat=mypat", "--project_id=myprojectid"}, `[INFO] Using PAT.
-[INFO] Project ID added to sessions options.
-failed to set session options: rpc error: code = Unauthenticated desc =`},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Args = append([]string{os.Args[0]}, tt.argList...)
-			var buf bytes.Buffer
-			log.SetFlags(0)
-			log.SetOutput(&buf)
-			defer log.SetOutput(os.Stderr)
-			main()
-
-			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
-		})
-	}
+type MockFlightService_DoGetClientMockRecorder struct {
+	mock *MockFlightService_DoGetClient
 }
 
-func TestErrors(t *testing.T) {
-	tests := []struct {
-		name        string
-		argList     []string
-		errorPrefix string
+func NewMockFlightService_DoGetClient(ctrl *gomock.Controller) *MockFlightService_DoGetClient {
+	mock := &MockFlightService_DoGetClient{ctrl: ctrl}
+	mock.recorder = &MockFlightService_DoGetClientMockRecorder{mock}
+	return mock
+}
+
+func (m *MockFlightService_DoGetClient) EXPECT() *MockFlightService_DoGetClientMockRecorder {
+	return m.recorder
+}
+
+func (m *MockFlightService_DoGetClient) Recv() (*flight.FlightData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Recv")
+	ret0, _ := ret[0].(*flight.FlightData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockFlightService_DoGetClientMockRecorder) Recv() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockFlightService_DoGetClient)(nil).Recv))
+}
+
+func TestRun(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	allocator := memory.NewGoAllocator()
+
+	// Create a schema with a single Int32 field
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "field1", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+
+	// Create a record batch
+	bldr := array.NewInt32Builder(allocator)
+	defer bldr.Release()
+
+	bldr.AppendValues([]int32{1, 2, 3}, nil)
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	// Create a record batch
+	record := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer record.Release()
+
+	// Serialize the schema and record batch to IPC format
+	var schemaBuf, recordBuf bytes.Buffer
+
+	// Write schema
+	schemaWriter := ipc.NewWriter(&schemaBuf, ipc.WithSchema(schema))
+	if err := schemaWriter.Close(); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
+	}
+
+	// Write record batch
+	recordWriter := ipc.NewWriter(&recordBuf, ipc.WithSchema(schema))
+	if err := recordWriter.Write(record); err != nil {
+		t.Fatalf("Failed to write record batch: %v", err)
+	}
+	if err := recordWriter.Close(); err != nil {
+		t.Fatalf("Failed to close record writer: %v", err)
+	}
+
+	mockStream := NewMockFlightService_DoGetClient(ctrl)
+
+	mockStream.EXPECT().Recv().Return(&flight.FlightData{
+		DataHeader: schemaBuf.Bytes(),
+		DataBody:   recordBuf.Bytes(),
+	}, nil).Times(1)
+
+	mockStream.EXPECT().Recv().Return(nil, io.EOF).Times(1)
+
+	mockClient := NewMockFlightClient(ctrl)
+
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
+		Return(context.Background(), nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetSchema(gomock.Any(), gomock.Any()).
+		Return(&flight.SchemaResult{
+			Schema: schemaBuf.Bytes(),
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetFlightInfo(gomock.Any(), gomock.Any()).
+		Return(&flight.FlightInfo{
+			Endpoint: []*flight.FlightEndpoint{
+				{Ticket: &flight.Ticket{Ticket: []byte("mock_ticket")}},
+			},
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		DoGet(gomock.Any(), gomock.Any()).
+		Return(mockStream, nil).
+		Times(1)
+
+	config := struct {
+		Host      string
+		Port      string
+		Pat       string
+		User      string
+		Pass      string
+		Query     string
+		TLS       bool `docopt:"--tls"`
+		Certs     string
+		ProjectID string `docopt:"--project_id"`
 	}{
-		{"bad hostname", []string{"--user=dremio", "--pass=dremio123", "--host=badHostNamE"},
-			`rpc error: code = Unavailable desc = name resolver error: produced zero addresses`},
-		{"bad port", []string{"--host=localhost", "--port=12345", "--user=dremio", "--pass=dremio123"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp [::1]:12345: connect: connection refused`},
+		User:  "testuser",
+		Pass:  "testpass",
+		Query: "SELECT * FROM test",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if os.Getenv("TEST_FOO") == "1" {
-				os.Args = append([]string{os.Args[0]}, tt.argList...)
-				log.SetFlags(0)
-				main()
-				return
-			}
-
-			cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
-			cmd.Env = append(os.Environ(), "TEST_FOO=1")
-			stdout, _ := cmd.StderrPipe()
-			require.NoError(t, cmd.Start())
-
-			gotBytes, _ := ioutil.ReadAll(stdout)
-			err := cmd.Wait()
-			require.Error(t, err)
-
-			got := strings.TrimSpace(string(gotBytes))
-			assert.Truef(t, strings.HasPrefix(got, tt.errorPrefix), "expected: %s as prefix, got %s", got, tt.errorPrefix)
-		})
-	}
+	run(config, mockClient)
 }

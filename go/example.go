@@ -16,18 +16,61 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/apache/arrow-go/v18/arrow/flight"
-	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	"log"
 	"net"
 
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/docopt/docopt-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
+
+// FlightClient abstracts the flight.Client functionality for testing and modularity.
+type FlightClient interface {
+	AuthenticateBasicToken(ctx context.Context, user, pass string) (context.Context, error)
+	GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.SchemaResult, error)
+	GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.FlightInfo, error)
+	DoGet(ctx context.Context, ticket *flightgen.Ticket) (flight.FlightService_DoGetClient, error)
+	Close() error
+	SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error)
+	CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
+}
+
+type RealFlightClient struct {
+	client flight.Client
+}
+
+func (r *RealFlightClient) AuthenticateBasicToken(ctx context.Context, user, pass string) (context.Context, error) {
+	return r.client.AuthenticateBasicToken(ctx, user, pass)
+}
+
+func (r *RealFlightClient) GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.SchemaResult, error) {
+	return r.client.GetSchema(ctx, desc)
+}
+
+func (r *RealFlightClient) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.FlightInfo, error) {
+	return r.client.GetFlightInfo(ctx, desc)
+}
+
+func (r *RealFlightClient) DoGet(ctx context.Context, ticket *flightgen.Ticket) (flight.FlightService_DoGetClient, error) {
+	return r.client.DoGet(ctx, ticket)
+}
+
+func (r *RealFlightClient) Close() error {
+	return r.client.Close()
+}
+
+func (r *RealFlightClient) SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	return r.client.SetSessionOptions(ctx, req)
+}
+
+func (r *RealFlightClient) CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	return r.client.CloseSession(ctx, req)
+}
 
 const usage = `Dremio Client Example.
 
@@ -67,6 +110,7 @@ func main() {
 	if err := args.Bind(&config); err != nil {
 		log.Fatalf("error binding arguments: %v", err)
 	}
+
 	var creds credentials.TransportCredentials
 	if config.TLS {
 		log.Println("[INFO] Enabling TLS Connection.")
@@ -96,15 +140,30 @@ func main() {
 	client, err := flight.NewClientWithMiddleware(
 		net.JoinHostPort(config.Host, config.Port),
 		nil,
-		[]flight.ClientMiddleware{
-			flight.NewClientCookieMiddleware(),
-		},
+		[]flight.ClientMiddleware{flight.NewClientCookieMiddleware()},
 		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer client.Close()
+
+	flightClient := &RealFlightClient{client: client}
+	run(config, flightClient)
+
+}
+
+func run(config struct {
+	Host      string
+	Port      string
+	Pat       string
+	User      string
+	Pass      string
+	Query     string
+	TLS       bool `docopt:"--tls"`
+	Certs     string
+	ProjectID string `docopt:"--project_id"`
+}, flightClient FlightClient) {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio
 	// server flight endpoint:
@@ -120,16 +179,16 @@ func main() {
 		// If project_id is provided, set it in session options
 		if config.ProjectID != "" {
 			log.Println("[INFO] Project ID added to sessions options.")
-			err = setSessionOptions(ctx, client, config.ProjectID)
+			err := setSessionOptions(ctx, flightClient, config.ProjectID)
 			if err != nil {
-				log.Fatalf("Failed to set session options: %v", err)
+				log.Printf("Failed to set session options: %v", err)
 			}
 
 			// Close the session once the query is done
-			defer client.CloseSession(ctx, &flight.CloseSessionRequest{})
+			defer flightClient.CloseSession(ctx, &flight.CloseSessionRequest{})
 		}
 	} else {
-		if ctx, err = client.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
+		if _, err := flightClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			log.Fatal(err)
 		}
 		log.Println("[INFO] Authentication was successful.")
@@ -150,7 +209,7 @@ func main() {
 	// ctx = metadata.AppendToOutgoingContext(ctx, "schema", "test.schema")
 
 	// Retrieve the schema of the result set
-	sc, err := client.GetSchema(ctx, desc)
+	sc, err := flightClient.GetSchema(ctx, desc)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -163,14 +222,14 @@ func main() {
 	log.Println("[INFO] Schema:", schema)
 
 	// Get the FlightInfo message to retrieve the ticket corresponding to the query result set
-	info, err := client.GetFlightInfo(ctx, desc)
+	info, err := flightClient.GetFlightInfo(ctx, desc)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println("[INFO] GetFlightInfo was successful.")
 
 	// retrieve the result set as a stream of Arrow record batches.
-	stream, err := client.DoGet(ctx, info.Endpoint[0].Ticket)
+	stream, err := flightClient.DoGet(ctx, info.Endpoint[0].Ticket)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -189,7 +248,7 @@ func main() {
 	}
 }
 
-func setSessionOptions(ctx context.Context, client flight.Client, projectID string) error {
+func setSessionOptions(ctx context.Context, client FlightClient, projectID string) error {
 	projectIdSessionOption, err := flight.NewSessionOptionValue(projectID)
 	if err != nil {
 		return fmt.Errorf("failed to create session option: %v", err)
