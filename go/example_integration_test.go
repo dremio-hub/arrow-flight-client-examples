@@ -85,7 +85,7 @@ func TestAuthErrorDremio(t *testing.T) {
 		// uses defaults for host and port, localhost and 32010
 		{"pat auth with project id", []string{"--pat=mypat", "--project_id=myprojectid"}, `[INFO] Using PAT.
 [INFO] Project ID added to sessions options.
-failed to set session options: rpc error: code = Unauthenticated desc =`},
+Failed to set session options: set session options: rpc error: code = Unauthenticated desc =`},
 	}
 
 	for _, tt := range tests {

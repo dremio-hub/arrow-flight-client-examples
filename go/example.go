@@ -16,6 +16,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/apache/arrow-go/v18/arrow"
 	"log"
 	"net"
 
@@ -70,6 +71,53 @@ func (r *RealFlightClient) SetSessionOptions(ctx context.Context, req *flight.Se
 
 func (r *RealFlightClient) CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
 	return r.client.CloseSession(ctx, req)
+}
+
+// RecordReader interface to abstract record reading functionality
+type RecordReader interface {
+	Next() bool
+	Record() arrow.Record
+	Err() error
+	Release()
+}
+
+// WrapRecordReader creates a wrapper around flight.NewRecordReader
+func WrapRecordReader(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	return flight.NewRecordReader(stream)
+}
+
+// MockRecordReader for testing purposes
+type MockRecordReader struct {
+	records      []arrow.Record
+	currentIndex int
+	err          error
+}
+
+func NewMockRecordReader(records []arrow.Record) *MockRecordReader {
+	return &MockRecordReader{
+		records:      records,
+		currentIndex: -1,
+	}
+}
+
+func (m *MockRecordReader) Next() bool {
+	m.currentIndex++
+	return m.currentIndex < len(m.records)
+}
+
+func (m *MockRecordReader) Record() arrow.Record {
+	if m.currentIndex < 0 || m.currentIndex >= len(m.records) {
+		return nil
+	}
+	return m.records[m.currentIndex]
+}
+
+func (m *MockRecordReader) Err() error {
+	return m.err
+}
+
+func (m *MockRecordReader) Release() {
+	// In a mock, we don't need to do anything for release
 }
 
 const usage = `Dremio Client Example.
@@ -149,7 +197,7 @@ func main() {
 	defer client.Close()
 
 	flightClient := &RealFlightClient{client: client}
-	run(config, flightClient)
+	run(config, flightClient, WrapRecordReader)
 
 }
 
@@ -163,7 +211,9 @@ func run(config struct {
 	TLS       bool `docopt:"--tls"`
 	Certs     string
 	ProjectID string `docopt:"--project_id"`
-}, flightClient FlightClient) {
+}, flightClient FlightClient,
+	readerCreator func(flight.FlightService_DoGetClient) (RecordReader, error),
+) {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio
 	// server flight endpoint:
@@ -172,23 +222,24 @@ func run(config struct {
 	ctx := metadata.NewOutgoingContext(context.TODO(),
 		metadata.Pairs("routing-tag", "test-routing-tag", "routing-queue", "Low Cost User Queries"))
 
+	var err error
 	if config.Pat != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", config.Pat))
 		log.Println("[INFO] Using PAT.")
 
-		// If project_id is provided, set it in session options
 		if config.ProjectID != "" {
 			log.Println("[INFO] Project ID added to sessions options.")
-			err := setSessionOptions(ctx, flightClient, config.ProjectID)
+			err = setSessionOptions(ctx, flightClient, config.ProjectID)
 			if err != nil {
 				log.Printf("Failed to set session options: %v", err)
+				return
 			}
 
 			// Close the session once the query is done
 			defer flightClient.CloseSession(ctx, &flight.CloseSessionRequest{})
 		}
 	} else {
-		if _, err := flightClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
+		if ctx, err = flightClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			log.Fatal(err)
 		}
 		log.Println("[INFO] Authentication was successful.")
@@ -234,7 +285,7 @@ func run(config struct {
 		log.Fatal(err)
 	}
 
-	rdr, err := flight.NewRecordReader(stream)
+	rdr, err := readerCreator(stream)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -262,7 +313,7 @@ func setSessionOptions(ctx context.Context, client FlightClient, projectID strin
 
 	_, err = client.SetSessionOptions(ctx, &sessionOptionsRequest)
 	if err != nil {
-		return fmt.Errorf("failed to set session options: %v", err)
+		return fmt.Errorf("set session options: %v", err)
 	}
 
 	log.Printf("[INFO] Session options set with project_id: %s", projectID)
