@@ -7,52 +7,19 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	"reflect"
 	"testing"
 
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/golang/mock/gomock"
-	"google.golang.org/grpc"
+
+	"arrow-flight-client-example/implementations"
+	"arrow-flight-client-example/interfaces"
 )
-
-type MockFlightService_DoGetClient struct {
-	ctrl     *gomock.Controller
-	recorder *MockFlightService_DoGetClientMockRecorder
-	grpc.ClientStream
-}
-
-type MockFlightService_DoGetClientMockRecorder struct {
-	mock *MockFlightService_DoGetClient
-}
-
-func NewMockFlightService_DoGetClient(ctrl *gomock.Controller) *MockFlightService_DoGetClient {
-	mock := &MockFlightService_DoGetClient{ctrl: ctrl}
-	mock.recorder = &MockFlightService_DoGetClientMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFlightService_DoGetClient) EXPECT() *MockFlightService_DoGetClientMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFlightService_DoGetClient) Recv() (*flight.FlightData, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recv")
-	ret0, _ := ret[0].(*flight.FlightData)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFlightService_DoGetClientMockRecorder) Recv() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockFlightService_DoGetClient)(nil).Recv))
-}
 
 func TestRun(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create a memory allocator
 	allocator := memory.NewGoAllocator()
 
 	// Create a schema with a single Int32 field
@@ -75,13 +42,11 @@ func TestRun(t *testing.T) {
 	// Serialize the schema and record batch to IPC format
 	var schemaBuf, recordBuf bytes.Buffer
 
-	// Write schema
 	schemaWriter := ipc.NewWriter(&schemaBuf, ipc.WithSchema(schema))
 	if err := schemaWriter.Close(); err != nil {
 		t.Fatalf("Failed to write schema: %v", err)
 	}
 
-	// Write record batch
 	recordWriter := ipc.NewWriter(&recordBuf, ipc.WithSchema(schema))
 	if err := recordWriter.Write(record); err != nil {
 		t.Fatalf("Failed to write record batch: %v", err)
@@ -90,13 +55,10 @@ func TestRun(t *testing.T) {
 		t.Fatalf("Failed to close record writer: %v", err)
 	}
 
-	// Create mock stream
-	mockStream := NewMockFlightService_DoGetClient(ctrl)
+	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
 
-	// Create mock client
 	mockClient := NewMockFlightClient(ctrl)
 
-	// Set up expectations for mock client methods
 	mockClient.EXPECT().
 		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
 		Return(context.Background(), nil).
@@ -123,7 +85,6 @@ func TestRun(t *testing.T) {
 		Return(mockStream, nil).
 		Times(1)
 
-	// Prepare config
 	config := struct {
 		Host      string
 		Port      string
@@ -140,12 +101,9 @@ func TestRun(t *testing.T) {
 		Query: "SELECT * FROM test",
 	}
 
-	// Create a mock record reader creator function
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
-		// Create a mock record reader with the pre-created record
-		return NewMockRecordReader([]arrow.Record{record}), nil
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
-	// Run the test
 	run(config, mockClient, mockReaderCreator)
 }

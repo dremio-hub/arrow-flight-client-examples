@@ -16,10 +16,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/apache/arrow-go/v18/arrow"
 	"log"
 	"net"
 
+	"arrow-flight-client-example/implementations"
+	"arrow-flight-client-example/interfaces"
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -29,96 +30,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
-
-// FlightClient abstracts the flight.Client functionality for testing and modularity.
-type FlightClient interface {
-	AuthenticateBasicToken(ctx context.Context, user, pass string) (context.Context, error)
-	GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.SchemaResult, error)
-	GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.FlightInfo, error)
-	DoGet(ctx context.Context, ticket *flightgen.Ticket) (flight.FlightService_DoGetClient, error)
-	Close() error
-	SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error)
-	CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
-}
-
-type RealFlightClient struct {
-	client flight.Client
-}
-
-func (r *RealFlightClient) AuthenticateBasicToken(ctx context.Context, user, pass string) (context.Context, error) {
-	return r.client.AuthenticateBasicToken(ctx, user, pass)
-}
-
-func (r *RealFlightClient) GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.SchemaResult, error) {
-	return r.client.GetSchema(ctx, desc)
-}
-
-func (r *RealFlightClient) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.FlightInfo, error) {
-	return r.client.GetFlightInfo(ctx, desc)
-}
-
-func (r *RealFlightClient) DoGet(ctx context.Context, ticket *flightgen.Ticket) (flight.FlightService_DoGetClient, error) {
-	return r.client.DoGet(ctx, ticket)
-}
-
-func (r *RealFlightClient) Close() error {
-	return r.client.Close()
-}
-
-func (r *RealFlightClient) SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
-	return r.client.SetSessionOptions(ctx, req)
-}
-
-func (r *RealFlightClient) CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
-	return r.client.CloseSession(ctx, req)
-}
-
-// RecordReader interface to abstract record reading functionality
-type RecordReader interface {
-	Next() bool
-	Record() arrow.Record
-	Err() error
-	Release()
-}
-
-// WrapRecordReader creates a wrapper around flight.NewRecordReader
-func WrapRecordReader(stream flight.FlightService_DoGetClient) (RecordReader, error) {
-	return flight.NewRecordReader(stream)
-}
-
-// MockRecordReader for testing purposes
-type MockRecordReader struct {
-	records      []arrow.Record
-	currentIndex int
-	err          error
-}
-
-func NewMockRecordReader(records []arrow.Record) *MockRecordReader {
-	return &MockRecordReader{
-		records:      records,
-		currentIndex: -1,
-	}
-}
-
-func (m *MockRecordReader) Next() bool {
-	m.currentIndex++
-	return m.currentIndex < len(m.records)
-}
-
-func (m *MockRecordReader) Record() arrow.Record {
-	if m.currentIndex < 0 || m.currentIndex >= len(m.records) {
-		return nil
-	}
-	return m.records[m.currentIndex]
-}
-
-func (m *MockRecordReader) Err() error {
-	return m.err
-}
-
-func (m *MockRecordReader) Release() {
-	// In a mock, we don't need to do anything for release
-}
 
 const usage = `Dremio Client Example.
 
@@ -196,8 +107,8 @@ func main() {
 	}
 	defer client.Close()
 
-	flightClient := &RealFlightClient{client: client}
-	run(config, flightClient, WrapRecordReader)
+	flightClient := &implementations.GoFlightClient{Client: client}
+	run(config, flightClient, interfaces.WrapRecordReader)
 
 }
 
@@ -211,8 +122,8 @@ func run(config struct {
 	TLS       bool `docopt:"--tls"`
 	Certs     string
 	ProjectID string `docopt:"--project_id"`
-}, flightClient FlightClient,
-	readerCreator func(flight.FlightService_DoGetClient) (RecordReader, error),
+}, flightClient interfaces.FlightClient,
+	readerCreator func(flight.FlightService_DoGetClient) (interfaces.RecordReader, error),
 ) {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio
@@ -234,7 +145,6 @@ func run(config struct {
 				log.Printf("Failed to set session options: %v", err)
 				return
 			}
-
 			// Close the session once the query is done
 			defer flightClient.CloseSession(ctx, &flight.CloseSessionRequest{})
 		}
@@ -299,23 +209,20 @@ func run(config struct {
 	}
 }
 
-func setSessionOptions(ctx context.Context, client FlightClient, projectID string) error {
+func setSessionOptions(ctx context.Context, client interfaces.FlightClient, projectID string) error {
 	projectIdSessionOption, err := flight.NewSessionOptionValue(projectID)
 	if err != nil {
 		return fmt.Errorf("failed to create session option: %v", err)
 	}
-
 	sessionOptionsRequest := flight.SetSessionOptionsRequest{
 		SessionOptions: map[string]*flight.SessionOptionValue{
 			"project_id": &projectIdSessionOption,
 		},
 	}
-
 	_, err = client.SetSessionOptions(ctx, &sessionOptionsRequest)
 	if err != nil {
 		return fmt.Errorf("set session options: %v", err)
 	}
-
 	log.Printf("[INFO] Session options set with project_id: %s", projectID)
 	return nil
 }
