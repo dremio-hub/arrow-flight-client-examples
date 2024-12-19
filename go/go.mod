@@ -19,6 +19,7 @@ toolchain go1.23.3
 require (
 	github.com/apache/arrow-go/v18 v18.0.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
+	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
 	google.golang.org/grpc v1.67.1
