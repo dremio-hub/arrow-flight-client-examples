@@ -61,3 +61,10 @@ You can run a command similar to the following::
 go run . --host=<cloud.hostname> --port=443 --query="SELECT * FROM \"Samples\".\"samples.dremio.com\".\"NYC-taxi-trips\"" --tls --pat=<mypat> --project_id=<myprojectid>
 ```
 Here we're querying for a dataset called `NYC-taxi-trips`, in a source called `Samples`, in the `samples.dremio.com` folder.
+
+## Tests
+
+This example Go client also has unit tests that can be run using the following command:
+```go
+go test -v
+```
