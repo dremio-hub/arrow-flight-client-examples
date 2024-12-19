@@ -52,20 +52,11 @@ Options:
 
 func main() {
 	args, err := docopt.ParseDoc(usage)
-	var config struct {
-		Host      string
-		Port      string
-		Pat       string
-		User      string
-		Pass      string
-		Query     string
-		TLS       bool `docopt:"--tls"`
-		Certs     string
-		ProjectID string `docopt:"--project_id"`
-	}
 	if err != nil {
 		log.Fatalf("error parsing arguments: %v", err)
 	}
+
+	var config interfaces.FlightConfig
 	if err := args.Bind(&config); err != nil {
 		log.Fatalf("error binding arguments: %v", err)
 	}
@@ -108,23 +99,15 @@ func main() {
 	defer client.Close()
 
 	flightClient := &implementations.GoFlightClient{Client: client}
-	run(config, flightClient, interfaces.WrapRecordReader)
+	if err := run(config, flightClient, interfaces.WrapRecordReader); err != nil {
+		log.Fatal(err)
+	}
 
 }
 
-func run(config struct {
-	Host      string
-	Port      string
-	Pat       string
-	User      string
-	Pass      string
-	Query     string
-	TLS       bool `docopt:"--tls"`
-	Certs     string
-	ProjectID string `docopt:"--project_id"`
-}, flightClient interfaces.FlightClient,
+func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
 	readerCreator func(flight.FlightService_DoGetClient) (interfaces.RecordReader, error),
-) {
+) error {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio
 	// server flight endpoint:
@@ -142,21 +125,20 @@ func run(config struct {
 			log.Println("[INFO] Project ID added to sessions options.")
 			err = setSessionOptions(ctx, flightClient, config.ProjectID)
 			if err != nil {
-				log.Printf("Failed to set session options: %v", err)
-				return
+				return fmt.Errorf("failed to set session options: %v", err)
 			}
 			// Close the session once the query is done
 			defer flightClient.CloseSession(ctx, &flight.CloseSessionRequest{})
 		}
 	} else {
 		if ctx, err = flightClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to authenticate user: %v", err)
 		}
 		log.Println("[INFO] Authentication was successful.")
 	}
 
 	if config.Query == "" {
-		return
+		return nil
 	}
 
 	// Once successful, the context object now contains the credentials, use it for subsequent calls.
@@ -172,32 +154,32 @@ func run(config struct {
 	// Retrieve the schema of the result set
 	sc, err := flightClient.GetSchema(ctx, desc)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to get schema: %v", err)
 	}
 	log.Println("[INFO] GetSchema was successful.")
 
 	schema, err := flight.DeserializeSchema(sc.GetSchema(), memory.DefaultAllocator)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to deserialize schema: %v", err)
 	}
 	log.Println("[INFO] Schema:", schema)
 
 	// Get the FlightInfo message to retrieve the ticket corresponding to the query result set
 	info, err := flightClient.GetFlightInfo(ctx, desc)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to get flight info: %v", err)
 	}
 	log.Println("[INFO] GetFlightInfo was successful.")
 
 	// retrieve the result set as a stream of Arrow record batches.
 	stream, err := flightClient.DoGet(ctx, info.Endpoint[0].Ticket)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to get flight stream: %v", err)
 	}
 
 	rdr, err := readerCreator(stream)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create record reader: %v", err)
 	}
 	defer rdr.Release()
 
@@ -207,6 +189,7 @@ func run(config struct {
 		defer rec.Release()
 		log.Println(rec)
 	}
+	return nil
 }
 
 func setSessionOptions(ctx context.Context, client interfaces.FlightClient, projectID string) error {
