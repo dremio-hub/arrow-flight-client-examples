@@ -7,8 +7,8 @@ import (
 	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
 )
 
-// FlightClient abstracts the flight.Client functionality for testing and modularity.
-type FlightClient interface {
+// TestableClient abstracts the flight.Client functionality for testing and modularity.
+type TestableClient interface {
 	AuthenticateBasicToken(ctx context.Context, user, pass string) (context.Context, error)
 	GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.SchemaResult, error)
 	GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flightgen.FlightInfo, error)

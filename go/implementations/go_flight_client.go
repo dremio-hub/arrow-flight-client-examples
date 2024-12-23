@@ -9,7 +9,7 @@ import (
 	"arrow-flight-client-example/interfaces"
 )
 
-var _ interfaces.FlightClient = &GoFlightClient{}
+var _ interfaces.TestableClient = &GoFlightClient{}
 
 type GoFlightClient struct {
 	Client flight.Client

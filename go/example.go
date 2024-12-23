@@ -87,7 +87,7 @@ func main() {
 		creds = insecure.NewCredentials()
 	}
 
-	client, err := flight.NewClientWithMiddleware(
+	rawClient, err := flight.NewClientWithMiddleware(
 		net.JoinHostPort(config.Host, config.Port),
 		nil,
 		[]flight.ClientMiddleware{flight.NewClientCookieMiddleware()},
@@ -96,16 +96,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Close()
+	defer rawClient.Close()
 
-	flightClient := &implementations.GoFlightClient{Client: client}
-	if err := run(config, flightClient, interfaces.WrapRecordReader); err != nil {
+	// GoFlightClient and the TestableClient interface are simple wrappers for flight.Client to provide testing and modularity.
+	abstractClient := &implementations.GoFlightClient{Client: rawClient}
+	if err := run(config, abstractClient, interfaces.WrapRecordReader); err != nil {
 		log.Fatal(err)
 	}
 
 }
 
-func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
+func run(config interfaces.FlightConfig, abstractClient interfaces.TestableClient,
 	readerCreator func(flight.FlightService_DoGetClient) (interfaces.RecordReader, error),
 ) error {
 
@@ -123,15 +124,15 @@ func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
 
 		if config.ProjectID != "" {
 			log.Println("[INFO] Project ID added to sessions options.")
-			err = setSessionOptions(ctx, flightClient, config.ProjectID)
+			err = setSessionOptions(ctx, abstractClient, config.ProjectID)
 			if err != nil {
 				return fmt.Errorf("failed to set session options: %v", err)
 			}
 			// Close the session once the query is done
-			defer flightClient.CloseSession(ctx, &flight.CloseSessionRequest{})
+			defer abstractClient.CloseSession(ctx, &flight.CloseSessionRequest{})
 		}
 	} else {
-		if ctx, err = flightClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
+		if ctx, err = abstractClient.AuthenticateBasicToken(ctx, config.User, config.Pass); err != nil {
 			return fmt.Errorf("failed to authenticate user: %v", err)
 		}
 		log.Println("[INFO] Authentication was successful.")
@@ -152,7 +153,7 @@ func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
 	// ctx = metadata.AppendToOutgoingContext(ctx, "schema", "test.schema")
 
 	// Retrieve the schema of the result set
-	sc, err := flightClient.GetSchema(ctx, desc)
+	sc, err := abstractClient.GetSchema(ctx, desc)
 	if err != nil {
 		return fmt.Errorf("failed to get schema: %v", err)
 	}
@@ -165,14 +166,14 @@ func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
 	log.Println("[INFO] Schema:", schema)
 
 	// Get the FlightInfo message to retrieve the ticket corresponding to the query result set
-	info, err := flightClient.GetFlightInfo(ctx, desc)
+	info, err := abstractClient.GetFlightInfo(ctx, desc)
 	if err != nil {
 		return fmt.Errorf("failed to get flight info: %v", err)
 	}
 	log.Println("[INFO] GetFlightInfo was successful.")
 
 	// retrieve the result set as a stream of Arrow record batches.
-	stream, err := flightClient.DoGet(ctx, info.Endpoint[0].Ticket)
+	stream, err := abstractClient.DoGet(ctx, info.Endpoint[0].Ticket)
 	if err != nil {
 		return fmt.Errorf("failed to get flight stream: %v", err)
 	}
@@ -192,7 +193,7 @@ func run(config interfaces.FlightConfig, flightClient interfaces.FlightClient,
 	return nil
 }
 
-func setSessionOptions(ctx context.Context, client interfaces.FlightClient, projectID string) error {
+func setSessionOptions(ctx context.Context, client interfaces.TestableClient, projectID string) error {
 	projectIdSessionOption, err := flight.NewSessionOptionValue(projectID)
 	if err != nil {
 		return fmt.Errorf("failed to create session option: %v", err)
