@@ -23,7 +23,7 @@ func TestUsernamePassAuth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	mockClient.EXPECT().
 		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
@@ -46,7 +46,7 @@ func TestPATAuth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	mockClient.EXPECT().
 		SetSessionOptions(gomock.Any(), gomock.Any()).
@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 
 	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	mockClient.EXPECT().
 		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
@@ -192,7 +192,7 @@ func TestRunWithPAT(t *testing.T) {
 
 	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	mockClient.EXPECT().
 		GetSchema(gomock.Any(), gomock.Any()).
@@ -279,7 +279,7 @@ func TestRunWithPATNoProjectID(t *testing.T) {
 
 	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	mockClient.EXPECT().
 		GetSchema(gomock.Any(), gomock.Any()).
@@ -318,7 +318,7 @@ func TestInvalidCredentials(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
 		"Unauthenticated desc = Unable to authenticate user dremio, exception: Login failed: Invalid username or "+
@@ -357,7 +357,7 @@ func TestInvalidHost(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
 		"Unavailable desc = name resolver error: produced zero addresses")
@@ -395,7 +395,7 @@ func TestInvalidPort(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockFlightClient(ctrl)
+	mockClient := NewMockClient(ctrl)
 
 	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
 		"Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp: lookup tcp/320o: unknown port\"")
