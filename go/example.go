@@ -16,6 +16,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/apache/arrow-go/v18/arrow"
 	"log"
 	"net"
 
@@ -48,6 +49,17 @@ Options:
   --tls               Enable encrypted connection.
   --certs=<path>      Path to trusted certificates for encrypted connection.
   --project_id=<project_id>   Dremio project ID`
+
+type RecordReader interface {
+	Next() bool
+	Record() arrow.Record
+	Err() error
+	Release()
+}
+
+func WrapRecordReader(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	return flight.NewRecordReader(stream)
+}
 
 func main() {
 	args, err := docopt.ParseDoc(usage)
@@ -97,13 +109,13 @@ func main() {
 	}
 	defer client.Close()
 
-	if err := run(config, client, interfaces.WrapRecordReader); err != nil {
+	if err := run(config, client, WrapRecordReader); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func run(config interfaces.FlightConfig, client flight.Client,
-	readerCreator func(flight.FlightService_DoGetClient) (interfaces.RecordReader, error),
+	readerCreator func(flight.FlightService_DoGetClient) (RecordReader, error),
 ) error {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio

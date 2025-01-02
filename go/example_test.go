@@ -144,7 +144,7 @@ func TestRun(t *testing.T) {
 		Query: "SELECT * FROM test",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -231,7 +231,7 @@ func TestRunWithPAT(t *testing.T) {
 		ProjectID: "test_project_id",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -307,7 +307,7 @@ func TestRunWithPATNoProjectID(t *testing.T) {
 		Query: "SELECT * FROM test",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -335,7 +335,7 @@ func TestInvalidCredentials(t *testing.T) {
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}
@@ -373,7 +373,7 @@ func TestInvalidHost(t *testing.T) {
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}
@@ -411,7 +411,7 @@ func TestInvalidPort(t *testing.T) {
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}
