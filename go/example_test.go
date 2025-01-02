@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arrow-flight-client-example/interfaces"
 	"bytes"
 	"context"
 	"github.com/apache/arrow-go/v18/arrow"
@@ -16,7 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"arrow-flight-client-example/implementations"
-	"arrow-flight-client-example/interfaces"
 )
 
 func TestUsernamePassAuth(t *testing.T) {
@@ -30,7 +30,7 @@ func TestUsernamePassAuth(t *testing.T) {
 		Return(context.Background(), nil).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		User:  "testuser",
 		Pass:  "testpass",
 		Query: "",
@@ -58,7 +58,7 @@ func TestPATAuth(t *testing.T) {
 		Return(nil, nil).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		Pat:       "testpat",
 		ProjectID: "testproject",
 	}
@@ -138,13 +138,13 @@ func TestRun(t *testing.T) {
 		Return(mockStream, nil).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		User:  "testuser",
 		Pass:  "testpass",
 		Query: "SELECT * FROM test",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -225,13 +225,13 @@ func TestRunWithPAT(t *testing.T) {
 		Return(nil, nil).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		Pat:       "test_pat_token",
 		Query:     "SELECT * FROM test",
 		ProjectID: "test_project_id",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -302,12 +302,12 @@ func TestRunWithPATNoProjectID(t *testing.T) {
 		Return(mockStream, nil).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		Pat:   "test_pat_token",
 		Query: "SELECT * FROM test",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
 	}
 
@@ -329,13 +329,13 @@ func TestInvalidCredentials(t *testing.T) {
 		Return(context.Background(), expectedErr).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		User:  "dremio",
 		Pass:  "dremio12",
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}
@@ -367,13 +367,13 @@ func TestInvalidHost(t *testing.T) {
 		Return(context.Background(), expectedErr).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		User:  "dremio",
 		Pass:  "dremio12",
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}
@@ -405,13 +405,13 @@ func TestInvalidPort(t *testing.T) {
 		Return(context.Background(), expectedErr).
 		Times(1)
 
-	config := interfaces.FlightConfig{
+	config := FlightConfig{
 		User:  "dremio",
 		Pass:  "dremio12",
 		Query: "SELECT 1",
 	}
 
-	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 		t.Fatal("Reader creator should not be called due to authentication failure")
 		return nil, nil
 	}

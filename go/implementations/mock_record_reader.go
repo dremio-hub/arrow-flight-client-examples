@@ -1,8 +1,11 @@
 package implementations
 
 import (
+	"arrow-flight-client-example/interfaces"
 	"github.com/apache/arrow-go/v18/arrow"
 )
+
+var _ interfaces.RecordReader = (*MockRecordReader)(nil)
 
 // MockRecordReader for testing purposes
 type MockRecordReader struct {

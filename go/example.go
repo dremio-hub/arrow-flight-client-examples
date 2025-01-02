@@ -13,14 +13,13 @@
 package main
 
 import (
+	"arrow-flight-client-example/interfaces"
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/apache/arrow-go/v18/arrow"
 	"log"
 	"net"
 
-	"arrow-flight-client-example/interfaces"
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -50,14 +49,7 @@ Options:
   --certs=<path>      Path to trusted certificates for encrypted connection.
   --project_id=<project_id>   Dremio project ID`
 
-type RecordReader interface {
-	Next() bool
-	Record() arrow.Record
-	Err() error
-	Release()
-}
-
-func WrapRecordReader(stream flight.FlightService_DoGetClient) (RecordReader, error) {
+func WrapRecordReader(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 	return flight.NewRecordReader(stream)
 }
 
@@ -67,7 +59,7 @@ func main() {
 		log.Fatalf("error parsing arguments: %v", err)
 	}
 
-	var config interfaces.FlightConfig
+	var config FlightConfig
 	if err := args.Bind(&config); err != nil {
 		log.Fatalf("error binding arguments: %v", err)
 	}
@@ -114,8 +106,8 @@ func main() {
 	}
 }
 
-func run(config interfaces.FlightConfig, client flight.Client,
-	readerCreator func(flight.FlightService_DoGetClient) (RecordReader, error),
+func run(config FlightConfig, client flight.Client,
+	readerCreator func(flight.FlightService_DoGetClient) (interfaces.RecordReader, error),
 ) error {
 
 	// Two WLM settings can be provided upon initial authentication with the dremio

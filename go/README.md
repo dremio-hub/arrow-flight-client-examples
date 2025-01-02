@@ -64,7 +64,13 @@ Here we're querying for a dataset called `NYC-taxi-trips`, in a source called `S
 
 ## Tests
 
-This example Go client also has unit tests that can be run using the following command:
+To run the tests, you'll need a flight client mock class. This class is generated using mockgen. To aid in this process,
+we created a script that generates the mock class and runs all tests. You can run the script using the following command:
+```bash
+./run_tests.sh 
+```
+
+If the mock class is already generated you can alternatively use the following command:
 ```go
 go test -v
 ```
