@@ -1,139 +1,430 @@
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
+	"arrow-flight-client-example/interfaces"
 	"bytes"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
+	"context"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	"github.com/golang/mock/gomock"
+
+	"arrow-flight-client-example/implementations"
 )
 
-func TestDremio(t *testing.T) {
-	tests := []struct {
-		name     string
-		argList  []string
-		expected string
-	}{
-		// uses defaults for host and port, localhost and 32010
-		{"basic auth", []string{"--user=dremio", "--pass=dremio123"}, "[INFO] Authentication was successful."},
-		{"pat auth", []string{"--pat=mypat"}, "[INFO] Using PAT."},
-		// set host and port and send a query
-		{"test simple query", []string{"--host=localhost", "--port=32010", "--user=dremio", "--pass=dremio123",
-			"--query", "SELECT * FROM (VALUES(1,2,3))"},
-			`[INFO] Authentication was successful.
-[INFO] Query: SELECT * FROM (VALUES(1,2,3))
-[INFO] GetSchema was successful.
-[INFO] Schema: schema:
-  fields: 3
-    - EXPR$0: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-    - EXPR$1: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-    - EXPR$2: type=int32, nullable
-        metadata: ["ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "0", "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0", "ARROW:FLIGHT:SQL:SCHEMA_NAME": "", "ARROW:FLIGHT:SQL:TABLE_NAME": "", "ARROW:FLIGHT:SQL:IS_SEARCHABLE": "1", "ARROW:FLIGHT:SQL:IS_READ_ONLY": "1", "ARROW:FLIGHT:SQL:TYPE_NAME": "INTEGER"]
-[INFO] GetFlightInfo was successful.
-[INFO] Reading query results from dremio.
-record:
-  schema:
-  fields: 3
-    - EXPR$0: type=int32, nullable
-    - EXPR$1: type=int32, nullable
-    - EXPR$2: type=int32, nullable
-  rows: 1
-  col[0][EXPR$0]: [1]
-  col[1][EXPR$1]: [2]
-  col[2][EXPR$2]: [3]`},
+func TestUsernamePassAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := NewMockClient(ctrl)
+
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
+		Return(context.Background(), nil).
+		Times(1)
+
+	config := FlightConfig{
+		User:  "testuser",
+		Pass:  "testpass",
+		Query: "",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Args = append([]string{os.Args[0]}, tt.argList...)
-			var buf bytes.Buffer
-			log.SetFlags(0)
-			log.SetOutput(&buf)
-			defer log.SetOutput(os.Stderr)
-			main()
-
-			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
-		})
+	err := run(config, mockClient, nil)
+	if err != nil {
+		t.Errorf("Expected successful authentication with no error, got: %v", err)
 	}
 }
 
-func TestAuthErrorDremio(t *testing.T) {
-	tests := []struct {
-		name     string
-		argList  []string
-		expected string
-	}{
-		// uses defaults for host and port, localhost and 32010
-		{"pat auth with project id", []string{"--pat=mypat", "--project_id=myprojectid"}, `[INFO] Using PAT.
-[INFO] Project ID added to sessions options.
-failed to set session options: rpc error: code = Unauthenticated desc =`},
+func TestPATAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := NewMockClient(ctrl)
+
+	mockClient.EXPECT().
+		SetSessionOptions(gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		CloseSession(gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		Times(1)
+
+	config := FlightConfig{
+		Pat:       "testpat",
+		ProjectID: "testproject",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Args = append([]string{os.Args[0]}, tt.argList...)
-			var buf bytes.Buffer
-			log.SetFlags(0)
-			log.SetOutput(&buf)
-			defer log.SetOutput(os.Stderr)
-			main()
-
-			assert.Equal(t, tt.expected, strings.TrimSpace(buf.String()))
-		})
+	err := run(config, mockClient, nil)
+	if err != nil {
+		t.Errorf("Expected successful PAT authentication with no error, got: %v", err)
 	}
 }
 
-func TestErrors(t *testing.T) {
-	tests := []struct {
-		name        string
-		argList     []string
-		errorPrefix string
-	}{
-		{"bad hostname", []string{"--user=dremio", "--pass=dremio123", "--host=badHostNamE"},
-			`rpc error: code = Unavailable desc = name resolver error: produced zero addresses`},
-		{"bad port", []string{"--host=localhost", "--port=12345", "--user=dremio", "--pass=dremio123"},
-			`rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp [::1]:12345: connect: connection refused`},
+func TestRun(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	allocator := memory.NewGoAllocator()
+
+	// Create a schema with a single Int32 field
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "field1", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+
+	// Create a record batch
+	bldr := array.NewInt32Builder(allocator)
+	defer bldr.Release()
+
+	bldr.AppendValues([]int32{1, 2, 3}, nil)
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	// Create a record batch
+	record := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer record.Release()
+
+	// Serialize the schema and record batch to IPC format
+	var schemaBuf, recordBuf bytes.Buffer
+
+	schemaWriter := ipc.NewWriter(&schemaBuf, ipc.WithSchema(schema))
+	if err := schemaWriter.Close(); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if os.Getenv("TEST_FOO") == "1" {
-				os.Args = append([]string{os.Args[0]}, tt.argList...)
-				log.SetFlags(0)
-				main()
-				return
-			}
+	recordWriter := ipc.NewWriter(&recordBuf, ipc.WithSchema(schema))
+	if err := recordWriter.Write(record); err != nil {
+		t.Fatalf("Failed to write record batch: %v", err)
+	}
+	if err := recordWriter.Close(); err != nil {
+		t.Fatalf("Failed to close record writer: %v", err)
+	}
 
-			cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
-			cmd.Env = append(os.Environ(), "TEST_FOO=1")
-			stdout, _ := cmd.StderrPipe()
-			require.NoError(t, cmd.Start())
+	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
 
-			gotBytes, _ := ioutil.ReadAll(stdout)
-			err := cmd.Wait()
-			require.Error(t, err)
+	mockClient := NewMockClient(ctrl)
 
-			got := strings.TrimSpace(string(gotBytes))
-			assert.Truef(t, strings.HasPrefix(got, tt.errorPrefix), "expected: %s as prefix, got %s", got, tt.errorPrefix)
-		})
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "testuser", "testpass").
+		Return(context.Background(), nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetSchema(gomock.Any(), gomock.Any()).
+		Return(&flight.SchemaResult{
+			Schema: schemaBuf.Bytes(),
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetFlightInfo(gomock.Any(), gomock.Any()).
+		Return(&flight.FlightInfo{
+			Endpoint: []*flight.FlightEndpoint{
+				{Ticket: &flight.Ticket{Ticket: []byte("mock_ticket")}},
+			},
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		DoGet(gomock.Any(), gomock.Any()).
+		Return(mockStream, nil).
+		Times(1)
+
+	config := FlightConfig{
+		User:  "testuser",
+		Pass:  "testpass",
+		Query: "SELECT * FROM test",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
+	}
+
+	run(config, mockClient, mockReaderCreator)
+}
+
+func TestRunWithPAT(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	allocator := memory.NewGoAllocator()
+
+	// Create a schema with a single Int32 field
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "field1", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+
+	// Create a record batch
+	bldr := array.NewInt32Builder(allocator)
+	defer bldr.Release()
+
+	bldr.AppendValues([]int32{1, 2, 3}, nil)
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	// Create a record batch
+	record := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer record.Release()
+
+	// Serialize the schema and record batch to IPC format
+	var schemaBuf, recordBuf bytes.Buffer
+
+	schemaWriter := ipc.NewWriter(&schemaBuf, ipc.WithSchema(schema))
+	if err := schemaWriter.Close(); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
+	}
+
+	recordWriter := ipc.NewWriter(&recordBuf, ipc.WithSchema(schema))
+	if err := recordWriter.Write(record); err != nil {
+		t.Fatalf("Failed to write record batch: %v", err)
+	}
+	if err := recordWriter.Close(); err != nil {
+		t.Fatalf("Failed to close record writer: %v", err)
+	}
+
+	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
+
+	mockClient := NewMockClient(ctrl)
+
+	mockClient.EXPECT().
+		GetSchema(gomock.Any(), gomock.Any()).
+		Return(&flight.SchemaResult{
+			Schema: schemaBuf.Bytes(),
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetFlightInfo(gomock.Any(), gomock.Any()).
+		Return(&flight.FlightInfo{
+			Endpoint: []*flight.FlightEndpoint{
+				{Ticket: &flight.Ticket{Ticket: []byte("mock_ticket")}},
+			},
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		DoGet(gomock.Any(), gomock.Any()).
+		Return(mockStream, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		SetSessionOptions(gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		CloseSession(gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		Times(1)
+
+	config := FlightConfig{
+		Pat:       "test_pat_token",
+		Query:     "SELECT * FROM test",
+		ProjectID: "test_project_id",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
+	}
+
+	run(config, mockClient, mockReaderCreator)
+}
+
+func TestRunWithPATNoProjectID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	allocator := memory.NewGoAllocator()
+
+	// Create a schema with a single Int32 field
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "field1", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+
+	// Create a record batch
+	bldr := array.NewInt32Builder(allocator)
+	defer bldr.Release()
+
+	bldr.AppendValues([]int32{1, 2, 3}, nil)
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	// Create a record batch
+	record := array.NewRecord(schema, []arrow.Array{arr}, int64(arr.Len()))
+	defer record.Release()
+
+	// Serialize the schema and record batch to IPC format
+	var schemaBuf, recordBuf bytes.Buffer
+
+	schemaWriter := ipc.NewWriter(&schemaBuf, ipc.WithSchema(schema))
+	if err := schemaWriter.Close(); err != nil {
+		t.Fatalf("Failed to write schema: %v", err)
+	}
+
+	recordWriter := ipc.NewWriter(&recordBuf, ipc.WithSchema(schema))
+	if err := recordWriter.Write(record); err != nil {
+		t.Fatalf("Failed to write record batch: %v", err)
+	}
+	if err := recordWriter.Close(); err != nil {
+		t.Fatalf("Failed to close record writer: %v", err)
+	}
+
+	mockStream := implementations.NewMockFlightService_DoGetClient(ctrl)
+
+	mockClient := NewMockClient(ctrl)
+
+	mockClient.EXPECT().
+		GetSchema(gomock.Any(), gomock.Any()).
+		Return(&flight.SchemaResult{
+			Schema: schemaBuf.Bytes(),
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		GetFlightInfo(gomock.Any(), gomock.Any()).
+		Return(&flight.FlightInfo{
+			Endpoint: []*flight.FlightEndpoint{
+				{Ticket: &flight.Ticket{Ticket: []byte("mock_ticket")}},
+			},
+		}, nil).
+		Times(1)
+
+	mockClient.EXPECT().
+		DoGet(gomock.Any(), gomock.Any()).
+		Return(mockStream, nil).
+		Times(1)
+
+	config := FlightConfig{
+		Pat:   "test_pat_token",
+		Query: "SELECT * FROM test",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		return implementations.NewMockRecordReader([]arrow.Record{record}), nil
+	}
+
+	run(config, mockClient, mockReaderCreator)
+}
+
+func TestInvalidCredentials(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := NewMockClient(ctrl)
+
+	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
+		"Unauthenticated desc = Unable to authenticate user dremio, exception: Login failed: Invalid username or "+
+		"password, user dremio")
+
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "dremio", "dremio12").
+		Return(context.Background(), expectedErr).
+		Times(1)
+
+	config := FlightConfig{
+		User:  "dremio",
+		Pass:  "dremio12",
+		Query: "SELECT 1",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		t.Fatal("Reader creator should not be called due to authentication failure")
+		return nil, nil
+	}
+
+	err := run(config, mockClient, mockReaderCreator)
+	if err == nil {
+		t.Fatal("Expected an error, but got nil")
+	}
+
+	expectedErrStr := "failed to authenticate user: rpc error: code = Unauthenticated desc = Unable to authenticate " +
+		"user dremio, exception: Login failed: Invalid username or password, user dremio"
+
+	if !strings.Contains(err.Error(), expectedErrStr) {
+		t.Errorf("Expected error message to contain %q, got %q", expectedErrStr, err.Error())
+	}
+}
+
+func TestInvalidHost(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := NewMockClient(ctrl)
+
+	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
+		"Unavailable desc = name resolver error: produced zero addresses")
+
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "dremio", "dremio12").
+		Return(context.Background(), expectedErr).
+		Times(1)
+
+	config := FlightConfig{
+		User:  "dremio",
+		Pass:  "dremio12",
+		Query: "SELECT 1",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		t.Fatal("Reader creator should not be called due to authentication failure")
+		return nil, nil
+	}
+
+	err := run(config, mockClient, mockReaderCreator)
+	if err == nil {
+		t.Fatal("Expected an error, but got nil")
+	}
+
+	expectedErrStr := "failed to authenticate user: rpc error: code = Unavailable desc = name resolver error: " +
+		"produced zero addresses"
+
+	if !strings.Contains(err.Error(), expectedErrStr) {
+		t.Errorf("Expected error message to contain %q, got %q", expectedErrStr, err.Error())
+	}
+}
+
+func TestInvalidPort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockClient := NewMockClient(ctrl)
+
+	expectedErr := status.Error(codes.Unauthenticated, "failed to authenticate user: rpc error: code = "+
+		"Unavailable desc = connection error: desc = \"transport: Error while dialing: dial tcp: lookup tcp/320o: unknown port\"")
+
+	mockClient.EXPECT().
+		AuthenticateBasicToken(gomock.Any(), "dremio", "dremio12").
+		Return(context.Background(), expectedErr).
+		Times(1)
+
+	config := FlightConfig{
+		User:  "dremio",
+		Pass:  "dremio12",
+		Query: "SELECT 1",
+	}
+
+	mockReaderCreator := func(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
+		t.Fatal("Reader creator should not be called due to authentication failure")
+		return nil, nil
+	}
+
+	err := run(config, mockClient, mockReaderCreator)
+	if err == nil {
+		t.Fatal("Expected an error, but got nil")
+	}
+
+	expectedErrStr := "failed to authenticate user: rpc error: code = Unavailable desc = connection error: desc = " +
+		"\"transport: Error while dialing: dial tcp: lookup tcp/320o: unknown port\""
+
+	if !strings.Contains(err.Error(), expectedErrStr) {
+		t.Errorf("Expected error message to contain %q, got %q", expectedErrStr, err.Error())
 	}
 }

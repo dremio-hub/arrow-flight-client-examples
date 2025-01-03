@@ -61,3 +61,16 @@ You can run a command similar to the following::
 go run . --host=<cloud.hostname> --port=443 --query="SELECT * FROM \"Samples\".\"samples.dremio.com\".\"NYC-taxi-trips\"" --tls --pat=<mypat> --project_id=<myprojectid>
 ```
 Here we're querying for a dataset called `NYC-taxi-trips`, in a source called `Samples`, in the `samples.dremio.com` folder.
+
+## Tests
+
+To run the tests, you'll need a flight client mock class. This class is generated using mockgen. To aid in this process,
+we created a script that generates the mock class and runs all tests. You can run the script using the following command:
+```bash
+./run_tests.sh 
+```
+
+If the mock class is already generated you can alternatively use the following command:
+```go
+go test -v
+```
