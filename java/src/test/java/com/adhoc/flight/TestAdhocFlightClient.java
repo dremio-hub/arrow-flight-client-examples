@@ -67,7 +67,6 @@ public class TestAdhocFlightClient {
   public static final String DEFAULT_ROUTING_QUEUE = "Low Cost User Queries";
 
   public static final String CREATE_TABLE = "create table $scratch.simple_table as " + SIMPLE_QUERY;
-  public static final String CREATE_TABLE_NO_SCHEMA = "create table $scratch.simple_table as " + SIMPLE_QUERY;
   public static final String SIMPLE_QUERY_NO_SCHEMA = "SELECT * FROM simple_table";
   public static final String DROP_TABLE = "drop table $scratch.simple_table";
   public static final Map<String, String> EXPECTED_HEADERS = new HashMap<String, String>() {{
@@ -120,9 +119,9 @@ public class TestAdhocFlightClient {
   private void createBasicFlightClient(String host, int port,
                                        String user, String pass,
                                        String patOrAuthToken,
-                                       HeaderCallOption clientProperties) {
+      HeaderCallOption clientProperties) {
     client = AdhocFlightClient.getBasicClient(allocator, host, port, user, pass, patOrAuthToken,
-        clientProperties, null);
+        null, clientProperties, null);
   }
 
   /**
@@ -141,7 +140,7 @@ public class TestAdhocFlightClient {
                                                                        HeaderCallOption clientProperties)
       throws Exception {
     client = AdhocFlightClient.getEncryptedClient(allocator, host, port, user, pass, null, null,
-      null, DISABLE_SERVER_VERIFICATION, clientProperties, null);
+      null, DISABLE_SERVER_VERIFICATION, null, clientProperties, null);
   }
 
   @Test
@@ -269,7 +268,7 @@ public class TestAdhocFlightClient {
 
     flightClientMiddlewareList.add(clientFactory);
 
-    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null,
+    client = AdhocFlightClient.getBasicClient(allocator, HOST, PORT, USERNAME, PASSWORD, null, null,
       callOption, flightClientMiddlewareList);
 
     EXPECTED_HEADERS.forEach( (key, value) -> {

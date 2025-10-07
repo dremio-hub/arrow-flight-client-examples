@@ -17,9 +17,7 @@
 package com.adhoc.flight;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -30,10 +28,10 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.adhoc.flight.client.AdhocFlightClient;
+import com.adhoc.flight.config.ConfigurationData;
+import com.adhoc.flight.config.ConfigurationException;
+import com.adhoc.flight.config.ConfigurationManager;
 import com.adhoc.flight.utils.QueryUtils;
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
@@ -42,7 +40,7 @@ import com.google.common.collect.ImmutableMap;
  */
 public class QueryRunner {
   private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
-  private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
+  private static ConfigurationData CONFIGURATION;
 
   private static final String DEMO_TABLE = "dremio_flight_demo_table";
   private static final String DEMO_TABLE_SCHEMA = "$scratch";
@@ -62,73 +60,7 @@ public class QueryRunner {
   public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
   public static final String KEY_ROUTING_ENGINE = "ROUTING_ENGINE";
 
-  /**
-   * Class that holds all the command line arguments that can be used to run the
-   * examples.
-   */
-  static class CommandLineArguments {
-    @Parameter(names = {"-host", "--hostname"},
-        description = "Dremio co-ordinator hostname. Defaults to \"localhost\".")
-    public String host = "localhost";
 
-    @Parameter(names = {"-port", "--flightport"},
-        description = "Dremio flight server port. Defaults to 32010.")
-    public int port = 32010;
-
-    @Parameter(names = {"-user", "--username"},
-        description = "Dremio username. Defaults to \"dremio\".")
-    public String user;
-
-    @Parameter(names = {"-pass", "--password"},
-        description = "Dremio password. Defaults to \"dremio123\".")
-    public String pass;
-
-    @Parameter(names = {"-pat", "--personalAccessToken", "-authToken", "--authToken"},
-        description = "Either a Personal Access Token or an OAuth2 Token.")
-    public String patOrAuthToken;
-
-    @Parameter(names = {"-query", "--sqlQuery"},
-        description = "SQL query to test.")
-    public String query = null;
-
-    @Parameter(names = {"-binpath", "--saveBinaryPath"},
-        description = "Path to save the SQL result binary to.")
-    public String pathToSaveQueryResultsTo = null;
-
-    @Parameter(names = {"-tls", "--tls"},
-        description = "Enable encrypted connection. Defaults to false.")
-    public boolean enableTls = false;
-
-    @Parameter(names = {"-dsv", "--disableServerVerification"},
-        description = "Disable TLS server verification. Defaults to false.")
-    public boolean disableServerVerification = false;
-
-    @Parameter(names = {"-kstpath", "--keyStorePath"},
-        description = "Path to the jks keystore. Defaults to system Keystore.")
-    public String keystorePath = null;
-
-    @Parameter(names = {"-kstpass", "--keyStorePassword"},
-        description = "The jks keystore password.")
-    public String keystorePass = null;
-
-    @Parameter(names = {"-demo", "--runDemo"},
-        description = "A flag to to run a demo of querying the Dremio Flight Server Endpoint. Defaults to false.")
-    public boolean runDemo = false;
-
-    @Parameter(names = {"-engine", "--engine"},
-        description = "The specific engine to run against.")
-    public String engine;
-
-    @Parameter(names = {"-sp", "--sessionProperty"},
-        description = "Key value pairs of SessionProperty, " +
-          "example: -sp schema='Samples.\"samples.dremio.com\"' -sp key=value",
-        listConverter = SessionPropertyConverter.class)
-    public List<SessionProperty> sessionProperties = new ArrayList<>();
-
-    @Parameter(names = {"-h", "--help"},
-        description = "Show usage.", help = true)
-    public boolean help = false;
-  }
 
   /**
    * Runs a self contained demo to authenticate and query a Dremio Flight Server Endpoint.
@@ -144,8 +76,8 @@ public class QueryRunner {
    */
   public static void runDemo() throws Exception {
     System.out.println("\n[INFO] Running demo to query Dremio Flight Server Endpoint.");
-    System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + ARGUMENTS.host);
-    System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + ARGUMENTS.port);
+    System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + CONFIGURATION.host);
+    System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + CONFIGURATION.port);
 
     /**
      * Authentication
@@ -166,7 +98,7 @@ public class QueryRunner {
 
     // Authenticates FlightClient with routing properties.
     try (final AdhocFlightClient client = createFlightClient(routingCallOption)) {
-      QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+      QueryUtils.printAuthenticated(CONFIGURATION.host, CONFIGURATION.port);
 
       /**
        * Create demo table in $scratch
@@ -227,12 +159,12 @@ public class QueryRunner {
 
     final Map<String, String> sessionPropertiesMap = new HashMap<>();
 
-    ARGUMENTS.sessionProperties.forEach( sessionProperty -> {
+    CONFIGURATION.sessionProperties.forEach( sessionProperty -> {
       sessionPropertiesMap.put(sessionProperty.getKey(), sessionProperty.getValue());
     });
 
-    if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
-      sessionPropertiesMap.put(KEY_ROUTING_ENGINE, ARGUMENTS.engine);
+    if (!Strings.isNullOrEmpty(CONFIGURATION.engine)) {
+      sessionPropertiesMap.put(KEY_ROUTING_ENGINE, CONFIGURATION.engine);
     }
 
     final HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
@@ -242,17 +174,17 @@ public class QueryRunner {
       /**
        * Authentication
        */
-      QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+      QueryUtils.printAuthenticated(CONFIGURATION.host, CONFIGURATION.port);
 
       /**
        * Run Query
        */
-      QueryUtils.printRunningQuery(ARGUMENTS.query);
+      QueryUtils.printRunningQuery(CONFIGURATION.query);
 
       if (pathToSaveQueryResultsTo != null) {
-        client.runQuery(ARGUMENTS.query, clientProperties, new File(pathToSaveQueryResultsTo), true);
+        client.runQuery(CONFIGURATION.query, clientProperties, new File(pathToSaveQueryResultsTo), true);
       } else {
-        client.runQuery(ARGUMENTS.query, clientProperties, null, true);
+        client.runQuery(CONFIGURATION.query, clientProperties, null, true);
       }
     } catch (Exception ex) {
       System.out.println("[ERROR] Exception: " + ex.getMessage());
@@ -281,16 +213,30 @@ public class QueryRunner {
   }
 
   public static void main(String[] args) throws Exception {
-    parseCommandLineArgs(args);
-
     try {
-      if (ARGUMENTS.help) {
+      // Parse configuration from all sources
+      ConfigurationManager configManager = new ConfigurationManager();
+      CONFIGURATION = configManager.parseConfiguration(args);
+
+      // Validate configuration
+      CONFIGURATION.validate();
+
+      // Print configuration sources if verbose mode is enabled
+      if (CONFIGURATION.verbose) {
+        configManager.printConfigurationSources();
+        CONFIGURATION.printConfiguration();
+      }
+
+      if (CONFIGURATION.help) {
         System.exit(1);
-      } else if (ARGUMENTS.runDemo) {
+      } else if (CONFIGURATION.runDemo) {
         runDemo();
       } else {
-        runAdhoc(ARGUMENTS.pathToSaveQueryResultsTo);
+        runAdhoc(CONFIGURATION.pathToSaveQueryResultsTo);
       }
+    } catch (ConfigurationException e) {
+      System.err.println("Configuration error: " + e.getMessage());
+      System.exit(1);
     } finally {
       BUFFER_ALLOCATOR.close();
     }
@@ -313,30 +259,32 @@ public class QueryRunner {
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
     // If no auth method provided, default to demo username/password
-    if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
-      if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
-        ARGUMENTS.user = DEMO_USERNAME;
+    if (Strings.isNullOrEmpty(CONFIGURATION.patOrAuthToken)) {
+      if (Strings.isNullOrEmpty(CONFIGURATION.user)) {
+        CONFIGURATION.user = DEMO_USERNAME;
       }
 
-      if (Strings.isNullOrEmpty(ARGUMENTS.pass)) {
-        ARGUMENTS.pass = DEMO_PASSWORD;
+      if (Strings.isNullOrEmpty(CONFIGURATION.pass)) {
+        CONFIGURATION.pass = DEMO_PASSWORD;
       }
     }
 
-    if (ARGUMENTS.enableTls) {
+    if (CONFIGURATION.enableTls) {
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
-          ARGUMENTS.user, ARGUMENTS.pass,
-          ARGUMENTS.patOrAuthToken,
-          ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
-          ARGUMENTS.disableServerVerification,
+          CONFIGURATION.host, CONFIGURATION.port,
+          CONFIGURATION.user, CONFIGURATION.pass,
+          CONFIGURATION.patOrAuthToken,
+          CONFIGURATION.keystorePath, CONFIGURATION.keystorePass,
+          CONFIGURATION.disableServerVerification,
+          CONFIGURATION.projectId,
           clientProperties,
           null);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
-          ARGUMENTS.user, ARGUMENTS.pass,
-          ARGUMENTS.patOrAuthToken,
+          CONFIGURATION.host, CONFIGURATION.port,
+          CONFIGURATION.user, CONFIGURATION.pass,
+          CONFIGURATION.patOrAuthToken,
+          CONFIGURATION.projectId,
           clientProperties,
           null);
     }
@@ -356,22 +304,5 @@ public class QueryRunner {
     return new HeaderCallOption(callHeaders);
   }
 
-  /**
-   * Parses command line arguments.
-   *
-   * @param args command line arguments to parse.
-   */
-  private static void parseCommandLineArgs(String[] args) {
-    JCommander jCommander = new JCommander(QueryRunner.ARGUMENTS);
-    jCommander.setProgramName("Java Adhoc Client");
-    try {
-      jCommander.parse(args);
-    } catch (ParameterException e) {
-      System.out.println("\n" + e.getMessage() + "\n");
-      jCommander.usage();
-    }
-    if (QueryRunner.ARGUMENTS.help) {
-      jCommander.usage();
-    }
-  }
+
 }

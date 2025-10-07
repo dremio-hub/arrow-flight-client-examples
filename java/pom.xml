@@ -11,8 +11,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <arrow.version>3.0.0</arrow.version>
-        <dep.guava.version>20.0</dep.guava.version>
+        <arrow.version>18.0.0</arrow.version>
+        <dep.guava.version>33.3.0-jre</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     </properties>
 
@@ -35,11 +35,6 @@
                     <artifactId>netty-transport-native-epoll</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-grpc</artifactId>
-            <version>${arrow.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
@@ -70,7 +65,12 @@
             <version>1.10.19</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.13.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
