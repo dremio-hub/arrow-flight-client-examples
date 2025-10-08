@@ -19,6 +19,9 @@
   <!-- suppress files that include additional lines in license -->
   <suppress checks="Header" files="AutoCloseables.java|Collections2.java" />
 
+  <!-- suppress header check for properties files -->
+  <suppress checks="Header" files=".*\.properties" />
+
   <!-- Suppress certain checks requiring many code changes, that add little benefit -->
   <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
 
