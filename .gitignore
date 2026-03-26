@@ -1,6 +1,7 @@
 java/.idea
-java/target
+**/target
 java/*.iml
+.DS_Store
 .idea
 *.env
 **/__pycache__
