@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
  * Java Flight sample application that runs the specified query.
  */
 public class QueryRunner {
+  private static final int DEFAULT_FLIGHT_PORT = 32010;
   private static final BufferAllocator BUFFER_ALLOCATOR = new RootAllocator(Integer.MAX_VALUE);
   private static final CommandLineArguments ARGUMENTS = new CommandLineArguments();
 
@@ -73,7 +74,7 @@ public class QueryRunner {
 
     @Parameter(names = {"-port", "--flightport"},
         description = "Dremio flight server port. Defaults to 32010.")
-    public int port = 32010;
+    public int port = DEFAULT_FLIGHT_PORT;
 
     @Parameter(names = {"-user", "--username"},
         description = "Dremio username. Defaults to \"dremio\".")
@@ -147,9 +148,10 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runDemo() throws Exception {
+    final ConnectionTarget connectionTarget = resolveConnectionTarget();
     System.out.println("\n[INFO] Running demo to query Dremio Flight Server Endpoint.");
-    System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + ARGUMENTS.host);
-    System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + ARGUMENTS.port);
+    System.out.println("[INFO] Configured Dremio Flight Server Endpoint host: " + connectionTarget.host);
+    System.out.println("[INFO] Configured Dremio Flight Server Endpoint port: " + connectionTarget.port);
 
     /**
      * Authentication
@@ -170,7 +172,7 @@ public class QueryRunner {
 
     // Authenticates FlightClient with routing properties.
     try (final AdhocFlightClient client = createFlightClient(routingCallOption)) {
-      QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+      QueryUtils.printAuthenticated(connectionTarget.host, connectionTarget.port);
 
       /**
        * Create demo table in $scratch
@@ -227,7 +229,7 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   public static void runAdhoc(String pathToSaveQueryResultsTo) throws Exception {
-
+    final ConnectionTarget connectionTarget = resolveConnectionTarget();
 
     final Map<String, String> sessionPropertiesMap = new HashMap<>();
 
@@ -246,7 +248,12 @@ public class QueryRunner {
       /**
        * Authentication
        */
-      QueryUtils.printAuthenticated(ARGUMENTS.host, ARGUMENTS.port);
+      if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
+        QueryUtils.printAuthenticated(connectionTarget.host, connectionTarget.port);
+      } else {
+        System.out.println("[INFO] Using bearer token authentication. " +
+            "Dremio will authenticate the first Flight request.");
+      }
 
       /**
        * Run Query
@@ -316,6 +323,7 @@ public class QueryRunner {
    *                   - TIMED_OUT: timed out trying to access Dremio resources.
    */
   private static AdhocFlightClient createFlightClient(HeaderCallOption clientProperties) throws Exception {
+    final ConnectionTarget connectionTarget = resolveConnectionTarget();
     // If no auth method provided, default to demo username/password
     if (Strings.isNullOrEmpty(ARGUMENTS.patOrAuthToken)) {
       if (Strings.isNullOrEmpty(ARGUMENTS.user)) {
@@ -329,7 +337,7 @@ public class QueryRunner {
 
     if (ARGUMENTS.enableTls) {
       return AdhocFlightClient.getEncryptedClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
+          connectionTarget.host, connectionTarget.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.patOrAuthToken,
           ARGUMENTS.keystorePath, ARGUMENTS.keystorePass,
@@ -339,7 +347,7 @@ public class QueryRunner {
           null);
     } else {
       return AdhocFlightClient.getBasicClient(BUFFER_ALLOCATOR,
-          ARGUMENTS.host, ARGUMENTS.port,
+          connectionTarget.host, connectionTarget.port,
           ARGUMENTS.user, ARGUMENTS.pass,
           ARGUMENTS.patOrAuthToken,
           ARGUMENTS.projectId,
@@ -362,6 +370,24 @@ public class QueryRunner {
     return new HeaderCallOption(callHeaders);
   }
 
+  private static ConnectionTarget resolveConnectionTarget() {
+    final String host = ARGUMENTS.host;
+    if (ARGUMENTS.port == DEFAULT_FLIGHT_PORT) {
+      final int separatorIndex = host.lastIndexOf(':');
+      final boolean hasSingleSeparator = separatorIndex > 0 && separatorIndex == host.indexOf(':');
+      if (hasSingleSeparator && separatorIndex < host.length() - 1) {
+        try {
+          return new ConnectionTarget(
+              host.substring(0, separatorIndex),
+              Integer.parseInt(host.substring(separatorIndex + 1)));
+        } catch (NumberFormatException ignored) {
+          // Fall through and keep the original host/port values.
+        }
+      }
+    }
+    return new ConnectionTarget(host, ARGUMENTS.port);
+  }
+
   /**
    * Parses command line arguments.
    *
@@ -378,6 +404,16 @@ public class QueryRunner {
     }
     if (QueryRunner.ARGUMENTS.help) {
       jCommander.usage();
+    }
+  }
+
+  private static final class ConnectionTarget {
+    private final String host;
+    private final int port;
+
+    private ConnectionTarget(String host, int port) {
+      this.host = host;
+      this.port = port;
     }
   }
 }

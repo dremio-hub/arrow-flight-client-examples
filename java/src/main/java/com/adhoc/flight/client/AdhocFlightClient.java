@@ -113,7 +113,6 @@ public final class AdhocFlightClient implements AutoCloseable {
       HeaderCallOption clientProperties,
       List<FlightClientMiddleware.Factory> middlewares)
       throws Exception {
-
     final FlightClient.Builder flightClientBuilder = FlightClient.builder()
         .location(Location.forGrpcTls(host, port))
         .useTls();
@@ -192,17 +191,7 @@ public final class AdhocFlightClient implements AutoCloseable {
       HeaderCallOption clientProperties,
       FlightClient.Builder builder) {
 
-    if (Strings.isNullOrEmpty(patOrAuthToken) && Strings.isNullOrEmpty(pass)) {
-      throw new IllegalArgumentException("No authentication method chosen.");
-    }
-
-    if (!Strings.isNullOrEmpty(pass) && Strings.isNullOrEmpty(user)) {
-      throw new IllegalArgumentException("Username must be defined for password authentication.");
-    }
-
-    if (!Strings.isNullOrEmpty(patOrAuthToken) && !Strings.isNullOrEmpty(pass)) {
-      throw new IllegalArgumentException("Provide exactly one of: [pass, patOrAuthToken]");
-    }
+    validateAuthenticationArgs(user, pass, patOrAuthToken);
 
     final ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
@@ -237,6 +226,20 @@ public final class AdhocFlightClient implements AutoCloseable {
         allocator,
         credentials,
         projectId);
+  }
+
+  private static void validateAuthenticationArgs(String user, String pass, String patOrAuthToken) {
+    if (Strings.isNullOrEmpty(patOrAuthToken) && Strings.isNullOrEmpty(pass)) {
+      throw new IllegalArgumentException("No authentication method chosen.");
+    }
+
+    if (!Strings.isNullOrEmpty(pass) && Strings.isNullOrEmpty(user)) {
+      throw new IllegalArgumentException("Username must be defined for password authentication.");
+    }
+
+    if (!Strings.isNullOrEmpty(patOrAuthToken) && !Strings.isNullOrEmpty(pass)) {
+      throw new IllegalArgumentException("Provide exactly one of: [pass, patOrAuthToken]");
+    }
   }
 
   /**
@@ -292,6 +295,10 @@ public final class AdhocFlightClient implements AutoCloseable {
    * Helper method to authenticate provided FlightClient instance against a Dremio Flight Server
    * Endpoint.
    *
+   * <p>Dremio Cloud accepts PAT/OAuth bearer tokens on subsequent Flight requests without an
+   * explicit Flight handshake. Match the Python and Go examples by returning a bearer credential
+   * that callers attach to GetInfo/DoGet/SetSessionOptions requests.
+   *
    * @param client           the FlightClient instance to connect to Dremio.
    * @param patOrAuthToken   the Personal Access token or OAuth2 token.
    * @param clientProperties client properties to set during authentication.
@@ -300,22 +307,7 @@ public final class AdhocFlightClient implements AutoCloseable {
   public static CredentialCallOption authenticatePatOrAuthToken(FlightClient client,
       String patOrAuthToken,
       HeaderCallOption clientProperties) {
-    final List<CallOption> callOptions = new ArrayList<>();
-
-    callOptions.add(new CredentialCallOption(new BearerCredentialWriter(patOrAuthToken)));
-
-    // If provided, add client properties to CallOptions.
-    if (clientProperties != null) {
-      callOptions.add(clientProperties);
-    }
-
-    // Perform handshake with the Dremio Flight Server Endpoint.
-    client.handshake(callOptions.toArray(new CallOption[callOptions.size()]));
-
-    // Authentication is successful, extract the bearer token returned by the server from the
-    // ClientIncomingAuthHeaderMiddleware.Factory. The CredentialCallOption can be used in
-    // subsequent Flight RPC requests for bearer token authentication.
-    return (CredentialCallOption) callOptions.get(0);
+    return new CredentialCallOption(new BearerCredentialWriter(patOrAuthToken));
   }
 
   /**
