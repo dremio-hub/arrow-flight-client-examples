@@ -45,7 +45,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 #### 1.2.2 Build the Java sample application
 
 -   Clone this [repository](https://github.com/dremio-hub/arrow-flight-client-examples).
--   Navigate to arrow-flight-client-examples/java.
+-   Navigate to `arrow-flight-client-examples/java/flight-client`.
 -   Build the sample application on the command line with:
     -   `mvn clean install -DskipTests`
 
