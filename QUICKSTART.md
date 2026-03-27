@@ -39,7 +39,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 
 #### 1.2.1 Prerequisites
 
--   Java 8
+-   Java 11+
 -   Maven 3.5 or above
 
 #### 1.2.2 Build the Java sample application

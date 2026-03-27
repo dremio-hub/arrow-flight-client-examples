@@ -7,7 +7,7 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 > Note that: Trusted certificates must be provided when the tls option is enabled.
 
 ### Prerequisites
-- Java 8
+- Java 11+
 - Maven 3.5 or above
 - Dremio version 12.0+
 
