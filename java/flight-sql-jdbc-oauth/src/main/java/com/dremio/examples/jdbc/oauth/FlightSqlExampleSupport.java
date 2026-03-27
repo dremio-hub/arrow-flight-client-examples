@@ -23,45 +23,15 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Optional;
 import java.util.Properties;
 
 final class FlightSqlExampleSupport {
-  private static final String DEFAULT_QUERY = "SELECT 1 AS example_value";
-  private static final int DEFAULT_PORT = 32010;
-  private static final int DEFAULT_MAX_ROWS = 10;
-
   private FlightSqlExampleSupport() {
   }
 
-  static Properties baseConnectionProperties(ExampleEnvironment environment) {
-    final Properties properties = new Properties();
-
-    properties.setProperty("useEncryption",
-        Boolean.toString(environment.getBoolean("DREMIO_USE_ENCRYPTION", false)));
-    properties.setProperty("disableCertificateVerification",
-        Boolean.toString(environment.getBoolean(
-            "DREMIO_DISABLE_CERTIFICATE_VERIFICATION", false)));
-
-    setIfPresent(properties, "tlsRootCerts", environment.optional("DREMIO_TLS_ROOT_CERTS"));
-    setIfPresent(properties, "trustStore", environment.optional("DREMIO_TRUST_STORE"));
-    setIfPresent(properties, "trustStorePassword",
-        environment.optional("DREMIO_TRUST_STORE_PASSWORD"));
-    setIfPresent(properties, "clientCertificate",
-        environment.optional("DREMIO_CLIENT_CERTIFICATE"));
-    setIfPresent(properties, "clientKey", environment.optional("DREMIO_CLIENT_KEY"));
-    setIfPresent(properties, "catalog", environment.optional("DREMIO_CATALOG"));
-
-    return properties;
-  }
-
-  static void executeQuery(String scenario, ExampleEnvironment environment,
+  static void executeQuery(String scenario, String url, String query, int maxRows,
       Properties properties) throws Exception {
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
-
-    final String url = connectionUrl(environment);
-    final String query = environment.optional("DREMIO_SQL").orElse(DEFAULT_QUERY);
-    final int maxRows = environment.getInt("DREMIO_MAX_ROWS", DEFAULT_MAX_ROWS);
 
     System.out.println("Scenario: " + scenario);
     System.out.println("Flight SQL URL: " + url);
@@ -79,12 +49,6 @@ final class FlightSqlExampleSupport {
         printRows(resultSet, maxRows);
       }
     }
-  }
-
-  private static String connectionUrl(ExampleEnvironment environment) {
-    return String.format("jdbc:arrow-flight-sql://%s:%d",
-        environment.require("DREMIO_HOST"),
-        environment.getInt("DREMIO_FLIGHT_PORT", DEFAULT_PORT));
   }
 
   private static void printRows(ResultSet resultSet, int maxRows) throws SQLException {
@@ -120,13 +84,6 @@ final class FlightSqlExampleSupport {
 
     if (rowCount == 0) {
       System.out.println("Query returned no rows.");
-    }
-  }
-
-  static void setIfPresent(Properties properties, String name,
-      Optional<String> value) {
-    if (value.isPresent()) {
-      properties.setProperty(name, value.get());
     }
   }
 }

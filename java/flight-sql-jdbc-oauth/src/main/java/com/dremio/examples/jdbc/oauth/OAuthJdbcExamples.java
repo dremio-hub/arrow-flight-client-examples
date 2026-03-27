@@ -17,7 +17,8 @@
 
 package com.dremio.examples.jdbc.oauth;
 
-import java.util.Locale;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 import java.util.Properties;
 
 public final class OAuthJdbcExamples {
@@ -25,51 +26,85 @@ public final class OAuthJdbcExamples {
   }
 
   public static void main(String[] args) throws Exception {
-    try {
-      run(args, ExampleEnvironment.system());
-    } catch (IllegalArgumentException ex) {
-      System.err.println("Configuration error: " + ex.getMessage());
-      printUsage();
-      System.exit(1);
-    }
-  }
+    final ClientCredentialsCommand clientCreds = new ClientCredentialsCommand();
+    final TokenExchangeCommand tokenExchange = new TokenExchangeCommand();
+    final DremioImpersonationCommand impersonation = new DremioImpersonationCommand();
 
-  static void run(String[] args, ExampleEnvironment environment) throws Exception {
-    if (args.length != 1 || isHelp(args[0])) {
-      printUsage();
+    final JCommander jCommander = JCommander.newBuilder()
+        .programName("java --add-opens=java.base/java.nio=ALL-UNNAMED -jar <jar>")
+        .addCommand(clientCreds)
+        .addCommand(tokenExchange)
+        .addCommand(impersonation)
+        .build();
+
+    if (isTopLevelHelp(args)) {
+      jCommander.usage();
       return;
     }
 
-    final String scenario = args[0].toLowerCase(Locale.ROOT);
-    final Properties properties;
-
-    switch (scenario) {
-      case "client-credentials":
-        properties = OAuthFlowProperties.clientCredentials(environment);
-        break;
-      case "token-exchange":
-        properties = OAuthFlowProperties.tokenExchange(environment);
-        break;
-      case "dremio-impersonation":
-        properties = OAuthFlowProperties.dremioUserImpersonation(environment);
-        break;
-      default:
-        throw new IllegalArgumentException(
-            "Unknown scenario: " + args[0]);
+    try {
+      jCommander.parse(args);
+    } catch (ParameterException ex) {
+      System.err.println(ex.getMessage());
+      jCommander.usage();
+      System.exit(1);
+      return;
     }
 
-    FlightSqlExampleSupport.executeQuery(scenario, environment, properties);
+    final String command = jCommander.getParsedCommand();
+    if (command == null) {
+      jCommander.usage();
+      return;
+    }
+
+    if (isCommandHelpRequested(command, clientCreds, tokenExchange, impersonation)) {
+      jCommander.getCommands().get(command).usage();
+      return;
+    }
+
+    final Properties properties;
+    final ConnectionParams connection;
+
+    switch (command) {
+      case "client-credentials":
+        properties = clientCreds.toProperties();
+        connection = clientCreds.connection;
+        break;
+      case "token-exchange":
+        properties = tokenExchange.toProperties();
+        connection = tokenExchange.connection;
+        break;
+      case "dremio-impersonation":
+        properties = impersonation.toProperties();
+        connection = impersonation.connection;
+        break;
+      default:
+        jCommander.usage();
+        System.exit(1);
+        return;
+    }
+
+    FlightSqlExampleSupport.executeQuery(command, connection.connectionUrl(),
+        connection.query, connection.maxRows, properties);
   }
 
-  private static boolean isHelp(String argument) {
-    return "-h".equals(argument)
-        || "--help".equals(argument)
-        || "help".equals(argument);
+  private static boolean isTopLevelHelp(String[] args) {
+    return args.length == 1
+        && ("-h".equals(args[0]) || "--help".equals(args[0]) || "help".equals(args[0]));
   }
 
-  private static void printUsage() {
-    System.out.println("Usage: java -jar <jar> "
-        + "<client-credentials|token-exchange|dremio-impersonation>");
-    System.out.println("See java/flight-sql-jdbc-oauth/README.md for required environment variables.");
+  private static boolean isCommandHelpRequested(String command,
+      ClientCredentialsCommand clientCreds, TokenExchangeCommand tokenExchange,
+      DremioImpersonationCommand impersonation) {
+    switch (command) {
+      case "client-credentials":
+        return clientCreds.connection.help;
+      case "token-exchange":
+        return tokenExchange.connection.help;
+      case "dremio-impersonation":
+        return impersonation.connection.help;
+      default:
+        return false;
+    }
   }
 }

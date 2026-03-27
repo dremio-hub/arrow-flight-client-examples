@@ -26,62 +26,52 @@ The driver requires:
 --add-opens=java.base/java.nio=ALL-UNNAMED
 ```
 
-## Common Environment Variables
+## Common Options
 
-- `DREMIO_HOST`: Flight SQL hostname
-- `DREMIO_FLIGHT_PORT`: Flight SQL port, defaults to `32010`
-- `DREMIO_SQL`: Query to run, defaults to `SELECT 1 AS example_value`
-- `DREMIO_MAX_ROWS`: Maximum rows to print, defaults to `10`
-- `DREMIO_USE_ENCRYPTION`: `true` or `false`, defaults to `false`
-- `DREMIO_DISABLE_CERTIFICATE_VERIFICATION`: `true` or `false`, defaults to `false`
-- `DREMIO_TLS_ROOT_CERTS`: Optional PEM file for TLS verification
-- `DREMIO_TRUST_STORE`: Optional Java trust store path
-- `DREMIO_TRUST_STORE_PASSWORD`: Optional trust store password
-- `DREMIO_CLIENT_CERTIFICATE`: Optional client mTLS certificate path
-- `DREMIO_CLIENT_KEY`: Optional client mTLS key path
-- `DREMIO_CATALOG`: Optional default catalog
-- `DREMIO_OAUTH_TOKEN_URI`: OAuth token endpoint used by the driver
-- `DREMIO_OAUTH_SCOPE`: Optional scope, defaults to `dremio.all`
-- `DREMIO_OAUTH_RESOURCE`: Optional RFC 8707 resource indicator
+All subcommands accept these options:
 
-`DREMIO_OAUTH_TOKEN_URI` uses Dremio's REST endpoint, while the JDBC connection itself uses the Flight SQL host and port.
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--host` | Flight SQL hostname | `localhost` |
+| `--port` | Flight SQL port | `32010` |
+| `--query` | SQL query to run | `SELECT 1 AS example_value` |
+| `--max-rows` | Maximum rows to print | `10` |
+| `--use-encryption` | Enable encrypted connection | `false` |
+| `--disable-certificate-verification` | Disable TLS server verification | `false` |
+| `--tls-root-certs` | PEM file for TLS verification | |
+| `--trust-store` | Java trust store path | |
+| `--trust-store-password` | Trust store password | |
+| `--client-certificate` | Client mTLS certificate path | |
+| `--client-key` | Client mTLS key path | |
+| `--catalog` | Default catalog | |
+| `--oauth-token-uri` | OAuth token endpoint (required) | |
+| `--oauth-scope` | OAuth scope | `dremio.all` |
+| `--oauth-resource` | RFC 8707 resource indicator | |
+
+`--oauth-token-uri` uses Dremio's REST endpoint, while the JDBC connection itself uses the Flight SQL host and port.
+
+Run `<jar> <subcommand> --help` to see all options for a specific subcommand.
+Run `<jar> --help` to list the available subcommands.
 
 ## Client Credentials
 
-Required:
-
-- `DREMIO_OAUTH_CLIENT_ID`
-- `DREMIO_OAUTH_CLIENT_SECRET`
-
-Example:
+Additional required options: `--oauth-client-id`, `--oauth-client-secret`
 
 ```bash
-export DREMIO_HOST=localhost
-export DREMIO_FLIGHT_PORT=32010
-export DREMIO_OAUTH_TOKEN_URI=http://localhost:9047/oauth/token
-export DREMIO_OAUTH_CLIENT_ID=service-user-client-id
-export DREMIO_OAUTH_CLIENT_SECRET=service-user-client-secret
-
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
   -jar target/java-flight-sql-jdbc-oauth-examples-1.0-SNAPSHOT.jar \
-  client-credentials
+  client-credentials \
+  --host localhost --port 32010 \
+  --oauth-token-uri http://localhost:9047/oauth/token \
+  --oauth-client-id service-user-client-id \
+  --oauth-client-secret service-user-client-secret
 ```
 
 ## Token Exchange
 
-Required:
+Additional required options: `--oauth-subject-token`, `--oauth-subject-token-type`
 
-- `DREMIO_OAUTH_SUBJECT_TOKEN`
-- `DREMIO_OAUTH_SUBJECT_TOKEN_TYPE`
-
-Optional:
-
-- `DREMIO_OAUTH_ACTOR_TOKEN`
-- `DREMIO_OAUTH_ACTOR_TOKEN_TYPE`
-- `DREMIO_OAUTH_AUDIENCE`
-- `DREMIO_OAUTH_REQUESTED_TOKEN_TYPE`
-- `DREMIO_OAUTH_CLIENT_ID`
-- `DREMIO_OAUTH_CLIENT_SECRET`
+Optional: `--oauth-actor-token` + `--oauth-actor-token-type` (must be provided together), `--oauth-client-id` + `--oauth-client-secret` (must be provided together), `--oauth-audience`, `--oauth-requested-token-type`
 
 Common Dremio subject token types:
 
@@ -91,50 +81,48 @@ Common Dremio subject token types:
 Example using an external JWT:
 
 ```bash
-export DREMIO_HOST=localhost
-export DREMIO_FLIGHT_PORT=32010
-export DREMIO_OAUTH_TOKEN_URI=http://localhost:9047/oauth/token
-export DREMIO_OAUTH_SUBJECT_TOKEN="$EXTERNAL_JWT"
-export DREMIO_OAUTH_SUBJECT_TOKEN_TYPE=urn:ietf:params:oauth:token-type:jwt
-
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
   -jar target/java-flight-sql-jdbc-oauth-examples-1.0-SNAPSHOT.jar \
-  token-exchange
+  token-exchange \
+  --host localhost --port 32010 \
+  --oauth-token-uri http://localhost:9047/oauth/token \
+  --oauth-subject-token "$EXTERNAL_JWT" \
+  --oauth-subject-token-type urn:ietf:params:oauth:token-type:jwt
 ```
 
 Example using a PAT:
 
 ```bash
-export DREMIO_OAUTH_SUBJECT_TOKEN="$DREMIO_PAT"
-export DREMIO_OAUTH_SUBJECT_TOKEN_TYPE=urn:ietf:params:oauth:token-type:dremio:personal-access-token
+java --add-opens=java.base/java.nio=ALL-UNNAMED \
+  -jar target/java-flight-sql-jdbc-oauth-examples-1.0-SNAPSHOT.jar \
+  token-exchange \
+  --host localhost --port 32010 \
+  --oauth-token-uri http://localhost:9047/oauth/token \
+  --oauth-subject-token "$DREMIO_PAT" \
+  --oauth-subject-token-type urn:ietf:params:oauth:token-type:dremio:personal-access-token
 ```
 
 ## Dremio User Impersonation via Token Exchange
 
-Required:
+Additional required options: `--target-user`, `--proxy-pat`
 
-- `DREMIO_TARGET_USER`
-- `DREMIO_PROXY_PAT`
+Optional: `--oauth-client-id` + `--oauth-client-secret`, `--oauth-audience`, `--oauth-requested-token-type`
 
-This scenario also requires an inbound impersonation policy that allows the proxy user behind `DREMIO_PROXY_PAT` to impersonate `DREMIO_TARGET_USER`.
+This scenario also requires an inbound impersonation policy that allows the proxy user behind `--proxy-pat` to impersonate `--target-user`.
 
 The example maps these values to Dremio's impersonation token exchange contract:
 
 - `subject_token_type=urn:ietf:params:oauth:token-type:dremio:subject`
 - `actor_token_type=urn:ietf:params:oauth:token-type:dremio:personal-access-token`
 
-Example:
-
 ```bash
-export DREMIO_HOST=localhost
-export DREMIO_FLIGHT_PORT=32010
-export DREMIO_OAUTH_TOKEN_URI=http://localhost:9047/oauth/token
-export DREMIO_TARGET_USER=sharedaccessuser
-export DREMIO_PROXY_PAT="$PROXY_USER_PAT"
-
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
   -jar target/java-flight-sql-jdbc-oauth-examples-1.0-SNAPSHOT.jar \
-  dremio-impersonation
+  dremio-impersonation \
+  --host localhost --port 32010 \
+  --oauth-token-uri http://localhost:9047/oauth/token \
+  --target-user sharedaccessuser \
+  --proxy-pat "$PROXY_USER_PAT"
 ```
 
 ## Scenarios
