@@ -16,20 +16,25 @@
 from argparse import Namespace
 from numpy import array, array_equal
 from pyarrow.flight import FlightUnauthenticatedError, FlightInternalError
-from dotenv import load_dotenv
 import certifi
 import os
 import pytest
 from dremio.flight.connection import DremioFlightEndpointConnection
 from dremio.flight.query import DremioFlightEndpointQuery
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - local convenience only
+    def load_dotenv():
+        return False
+
 load_dotenv()
 
 args_dict = {
-    "hostname": os.getenv("DREMIO_HOSTNAME"),
-    "port": os.getenv("DREMIO_FLIGHT_PORT"),
-    "username": os.getenv("DREMIO_USERNAME"),
-    "password": os.getenv("DREMIO_PASSWORD"),
+    "hostname": os.getenv("DREMIO_HOSTNAME", "localhost"),
+    "port": os.getenv("DREMIO_FLIGHT_PORT", "32010"),
+    "username": os.getenv("DREMIO_USERNAME", "dremio"),
+    "password": os.getenv("DREMIO_PASSWORD", "dremio123"),
     "query": "select * from (VALUES(1,2,3))",
     "token": None,
     "tls": False,
@@ -56,6 +61,14 @@ args_dict_ssl = {
 
 args_namespace = Namespace(**args_dict)
 args_namespace_ssl = Namespace(**args_dict_ssl)
+
+
+def has_cloud_tls_config():
+    return bool(
+        args_dict_ssl["hostname"]
+        and args_dict_ssl["port"]
+        and args_dict_ssl["token"]
+    )
 
 
 def test_basic_auth():
@@ -85,6 +98,10 @@ def test_simple_query():
     assert array_equal(dataframe_arr, expected_arr)
 
 
+@pytest.mark.skipif(
+    not has_cloud_tls_config(),
+    reason="Dremio Cloud TLS test requires explicit cloud credentials.",
+)
 def test_tls():
     """Test connection to Dremio Cloud on a encrypted servers.
     Then test a simple VALUES query.

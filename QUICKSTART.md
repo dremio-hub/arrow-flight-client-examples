@@ -39,13 +39,13 @@ This lightweight Java client application connects to the Dremio Arrow Flight ser
 
 #### 1.2.1 Prerequisites
 
--   Java 8
+-   Java 11+
 -   Maven 3.5 or above
 
 #### 1.2.2 Build the Java sample application
 
 -   Clone this [repository](https://github.com/dremio-hub/arrow-flight-client-examples).
--   Navigate to arrow-flight-client-examples/java.
+-   Navigate to `arrow-flight-client-examples/java/flight-client`.
 -   Build the sample application on the command line with:
     -   `mvn clean install -DskipTests`
 

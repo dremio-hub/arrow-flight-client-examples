@@ -33,12 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
         run:
-          working-directory: java
+          working-directory: java/flight-client
     strategy:
       matrix:
         # Python is needed for readiness check.
         python-version: [3.8]
-        java-version: [1.8]
+        java-version: [11]
 
     services:
       dremio:
@@ -64,7 +64,7 @@ jobs:
           pip install requests
       - name: Poll for Dremio readiness
         run: |
-          python ../readiness_check.py
+          python ../../readiness_check.py
       - name: Test connection to Dremio Arrow Flight server endpoint
         run: |
           mvn clean test
@@ -72,3 +72,22 @@ jobs:
         if: ${{ failure() || cancelled() }}
         run: |
           docker logs $(docker ps -aq)
+
+  test-java-jdbc-oauth:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java/flight-sql-jdbc-oauth
+    strategy:
+      matrix:
+        java-version: [11]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Java ${{ matrix.java-version }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java-version }}
+      - name: Run unit tests for JDBC OAuth examples
+        run: |
+          mvn clean test
