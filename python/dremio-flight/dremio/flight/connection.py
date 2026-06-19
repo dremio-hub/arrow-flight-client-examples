@@ -14,6 +14,7 @@
   limitations under the License.
 """
 import logging
+import secrets
 from pyarrow import flight
 from dremio.middleware.auth import DremioClientAuthMiddlewareFactory
 from dremio.middleware.cookie import CookieMiddlewareFactory
@@ -36,6 +37,8 @@ class DremioFlightEndpointConnection:
         self.path_to_certs = connection_args.get("path_to_certs")
         self.session_properties = connection_args.get("session_properties")
         self.engine = connection_args.get("engine")
+        self.trace_id = connection_args.get("trace_id")
+        self.trace_sampled = connection_args.get("trace_sampled", False)
         self._set_headers()
 
     def connect(self) -> flight.FlightClient:
@@ -141,6 +144,13 @@ class DremioFlightEndpointConnection:
 
         if self.engine:
             self.headers.append((b"routing_engine", self.engine.encode("utf-8")))
+
+        if self.trace_id:
+            flags = "01" if self.trace_sampled else "00"
+            span_id = secrets.token_hex(8)
+            traceparent = f"00-{self.trace_id}-{span_id}-{flags}"
+            self.headers.append((b"traceparent", traceparent.encode("utf-8")))
+            logging.info("traceparent header configured: %s", traceparent)
 
         # Two WLM settings can be provided upon initial authentication with the Dremio Server Flight Endpoint:
         # routing_tag

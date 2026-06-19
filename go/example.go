@@ -15,10 +15,13 @@ package main
 import (
 	"arrow-flight-client-example/interfaces"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
+	"regexp"
 
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	flightgen "github.com/apache/arrow-go/v18/arrow/flight/gen/flight"
@@ -36,6 +39,7 @@ Usage:
   example -h | --help
   example [--host=<hostname>] [--port=<port>] (--user=<username> --pass=<password> | --pat=<pat>)
           [--tls] [--certs=<path>] [--query <query>] [--project_id=<project_id>]
+          [--trace_id=<trace_id>] [--trace_sampled]
 
 Options:
   -h --help           Show this help.
@@ -47,7 +51,11 @@ Options:
   --query <query>     SQL Query to test.
   --tls               Enable encrypted connection.
   --certs=<path>      Path to trusted certificates for encrypted connection.
-  --project_id=<project_id>   Dremio project ID`
+  --project_id=<project_id>   Dremio project ID
+  --trace_id=<trace_id>       W3C trace ID, exactly 32 lowercase hex characters.
+  --trace_sampled             Set W3C trace flags to sampled (-01). Defaults to unsampled (-00).`
+
+var traceIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func WrapRecordReader(stream flight.FlightService_DoGetClient) (interfaces.RecordReader, error) {
 	return flight.NewRecordReader(stream)
@@ -116,6 +124,15 @@ func run(config FlightConfig, client flight.Client,
 	//  - routing-queue
 	ctx := metadata.NewOutgoingContext(context.TODO(),
 		metadata.Pairs("routing-tag", "test-routing-tag", "routing-queue", "Low Cost User Queries"))
+
+	if config.TraceID != "" {
+		traceparent, err := makeTraceparent(config.TraceID, config.TraceSampled)
+		if err != nil {
+			return err
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, "traceparent", traceparent)
+		log.Printf("[INFO] traceparent header configured: %s", traceparent)
+	}
 
 	var err error
 	if config.Pat != "" {
@@ -191,6 +208,24 @@ func run(config FlightConfig, client flight.Client,
 		log.Println(rec)
 	}
 	return nil
+}
+
+func makeTraceparent(traceID string, sampled bool) (string, error) {
+	if !traceIDPattern.MatchString(traceID) {
+		return "", fmt.Errorf("trace_id must be exactly 32 lowercase hex characters")
+	}
+
+	spanIDBytes := make([]byte, 8)
+	if _, err := rand.Read(spanIDBytes); err != nil {
+		return "", fmt.Errorf("failed to generate span ID: %w", err)
+	}
+
+	traceFlags := "00"
+	if sampled {
+		traceFlags = "01"
+	}
+
+	return fmt.Sprintf("00-%s-%s-%s", traceID, hex.EncodeToString(spanIDBytes), traceFlags), nil
 }
 
 func setSessionOptions(ctx context.Context, client flight.Client, projectID string) error {

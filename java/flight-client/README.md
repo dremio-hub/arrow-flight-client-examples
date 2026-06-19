@@ -69,10 +69,31 @@ Arguments:
     -tls, --tls
       Enable encrypted connection.
       Defaults to false.
+    -traceId, --traceId
+      W3C trace ID, exactly 32 lowercase hex characters.
+    -traceSampled, --traceSampled
+      Set W3C trace flags to sampled (-01). Defaults to unsampled (-00).
     -user, --username
       Dremio username.
       Defaults to "dremio".
     -projectId, --projectId
       Dremio Cloud project to connect to.
       Default: default project for organization
+```
+
+### Traceparent Header
+
+To send a W3C `traceparent` header with the Flight calls, provide a 32-character lowercase hex trace ID. The client generates a span ID and sends a header in the form `00-<traceId>-<spanId>-<traceFlags>`.
+
+By default, the trace flags byte is unsampled (`00`). Use `-traceSampled` when you need the sampled flag (`01`):
+
+```bash
+java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar \
+  -query "SELECT 1" \
+  -host <DREMIO_HOSTNAME> \
+  -port 443 \
+  -tls \
+  -pat <PAT> \
+  -traceId aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  -traceSampled
 ```

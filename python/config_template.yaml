@@ -12,3 +12,5 @@
 #  - schema: Samples."samples.dremio.com"
 #  - <keep adding more session properties>
 #engine:
+#trace_id:
+#trace_sampled:

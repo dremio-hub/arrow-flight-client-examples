@@ -17,6 +17,7 @@
 package com.adhoc.flight;
 
 import java.io.File;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,8 @@ public class QueryRunner {
   public static final String KEY_ROUTING_TAG = "ROUTING_TAG";
   public static final String KEY_ROUTING_QUEUE = "ROUTING_QUEUE";
   public static final String KEY_ROUTING_ENGINE = "ROUTING_ENGINE";
+  public static final String KEY_TRACEPARENT = "traceparent";
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   /**
    * Class that holds all the command line arguments that can be used to run the
@@ -123,6 +126,14 @@ public class QueryRunner {
     @Parameter(names = {"-projectId", "--projectId"},
         description = "Dremio Cloud project to connect to.")
     public String projectId;
+
+    @Parameter(names = {"-traceId", "--traceId"},
+        description = "W3C trace ID, exactly 32 lowercase hex characters.")
+    public String traceId;
+
+    @Parameter(names = {"-traceSampled", "--traceSampled"},
+        description = "Set W3C trace flags to sampled (-01). Defaults to unsampled (-00).")
+    public boolean traceSampled = false;
 
     @Parameter(names = {"-sp", "--sessionProperty"},
         description = "Key value pairs of SessionProperty, " +
@@ -239,6 +250,12 @@ public class QueryRunner {
 
     if (!Strings.isNullOrEmpty(ARGUMENTS.engine)) {
       sessionPropertiesMap.put(KEY_ROUTING_ENGINE, ARGUMENTS.engine);
+    }
+
+    if (!Strings.isNullOrEmpty(ARGUMENTS.traceId)) {
+      final String traceparent = createTraceparent(ARGUMENTS.traceId, ARGUMENTS.traceSampled);
+      sessionPropertiesMap.put(KEY_TRACEPARENT, traceparent);
+      System.out.println(String.format("[INFO] Setting traceparent header: %s", traceparent));
     }
 
     final HeaderCallOption clientProperties = createClientProperties(sessionPropertiesMap);
@@ -368,6 +385,25 @@ public class QueryRunner {
     final CallHeaders callHeaders = new FlightCallHeaders();
     clientProperties.forEach(callHeaders::insert);
     return new HeaderCallOption(callHeaders);
+  }
+
+  private static String createTraceparent(String traceId, boolean sampled) {
+    if (!traceId.matches("[0-9a-f]{32}")) {
+      throw new IllegalArgumentException("traceId must be exactly 32 lowercase hex characters.");
+    }
+
+    final byte[] spanId = new byte[8];
+    SECURE_RANDOM.nextBytes(spanId);
+    final String traceFlags = sampled ? "01" : "00";
+    return String.format("00-%s-%s-%s", traceId, bytesToHex(spanId), traceFlags);
+  }
+
+  private static String bytesToHex(byte[] bytes) {
+    final StringBuilder builder = new StringBuilder(bytes.length * 2);
+    for (byte value : bytes) {
+      builder.append(String.format("%02x", value));
+    }
+    return builder.toString();
   }
 
   private static ConnectionTarget resolveConnectionTarget() {
