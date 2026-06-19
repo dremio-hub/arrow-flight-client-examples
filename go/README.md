@@ -31,6 +31,7 @@ Usage:
   example -h | --help
   example [--host=<hostname>] [--port=<port>] (--user=<username> --pass=<password> | --pat=<pat>)
           [--tls] [--certs=<path>] [--query <query>] [--project_id=<project_id>]
+          [--trace_id=<trace_id>] [--trace_sampled]
 
 Options:
   -h --help           Show this help.
@@ -43,6 +44,8 @@ Options:
   --tls               Enable encrypted connection.
   --certs=<path>      Path to trusted certificates for encrypted connection.
   --project_id=<project_id>   Dremio project ID
+  --trace_id=<trace_id>       W3C trace ID, exactly 32 lowercase hex characters.
+  --trace_sampled             Set W3C trace flags to sampled (-01). Defaults to unsampled (-00).
 ```
 
 ## Example
@@ -61,6 +64,12 @@ You can run a command similar to the following::
 go run . --host=<cloud.hostname> --port=443 --query="SELECT * FROM \"Samples\".\"samples.dremio.com\".\"NYC-taxi-trips\"" --tls --pat=<mypat> --project_id=<myprojectid>
 ```
 Here we're querying for a dataset called `NYC-taxi-trips`, in a source called `Samples`, in the `samples.dremio.com` folder.
+
+To send a W3C `traceparent` header with the Flight calls, provide a 32-character lowercase hex trace ID. The example generates a span ID and sends a header in the form `00-<trace_id>-<span_id>-<trace_flags>`. Use `--trace_sampled` when you need the trace flags byte to be sampled (`01`):
+
+```bash
+go run . --host=<cloud.hostname> --port=443 --query="SELECT 1" --tls --pat=<mypat> --trace_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --trace_sampled
+```
 
 ## Tests
 

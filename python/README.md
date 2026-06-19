@@ -69,6 +69,8 @@ session_properties:
   - <str>
   - <str>
 engine: <str>
+trace_id: <str>
+trace_sampled: <bool>
 ```
 
 `hostname`
@@ -173,6 +175,31 @@ _type:_ string
 _required:_ False
 
 _description:_ The specific engine to run against. Only applicable to Dremio Cloud.
+
+`trace_id`
+
+_type:_ string
+
+_required:_ False
+
+_description:_ W3C trace ID to send in the `traceparent` Flight header. The value must be exactly 32 lowercase hex characters. The client generates a span ID and sends a header in the form `00-<trace_id>-<span_id>-<trace_flags>`.
+
+`trace_sampled`
+
+_type:_ boolean
+
+_required:_ False
+
+_default:_ False
+
+_description:_ When `true`, sets the W3C trace flags byte to sampled (`01`). When omitted or `false`, the trace flags byte is `00`. For example, `trace_id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` and `trace_sampled: true` produces a header like `traceparent: 00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-<generated-span-id>-01`.
+
+Example:
+
+```
+trace_id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+trace_sampled: true
+```
 
 ## Description
 

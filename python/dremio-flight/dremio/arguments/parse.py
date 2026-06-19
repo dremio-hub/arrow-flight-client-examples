@@ -38,6 +38,8 @@ options_default_validator = {
         "path_to_certs": str,
         "session_properties": list,
         "engine": str,
+        "trace_id": str,
+        "trace_sampled": bool,
     },
     "required": {
         "query": True,
@@ -116,10 +118,19 @@ def validate_auth_config(config: dict):
         )
 
 
+def validate_trace_config(config: dict):
+    trace_id = config.get("trace_id")
+    if trace_id is None:
+        return
+    if len(trace_id) != 32 or any(c not in "0123456789abcdef" for c in trace_id):
+        raise ValueError("The 'trace_id' option must be exactly 32 lowercase hex characters.")
+
+
 def validate_config(config: dict):
     validate_options_type(config)
     validate_required_options(config)
     validate_auth_config(config)
+    validate_trace_config(config)
     return
 
 

@@ -9,3 +9,5 @@ This repository provides sample Arrow Flight client applications in several lang
 - [java/flight-sql-jdbc-oauth](java/flight-sql-jdbc-oauth): Arrow Flight SQL JDBC Java examples for OAuth client credentials, token exchange, and Dremio user impersonation
 - [python](python): Python Arrow Flight client example
 - [go](go): Go Arrow Flight client example
+
+The Java, Python, and Go Flight client examples show how to send a W3C `traceparent` header with a user-provided trace ID. Each example also includes an option to set the sampled trace flag (`-01`) when required.
