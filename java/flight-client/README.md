@@ -88,7 +88,8 @@ To send a W3C `traceparent` header with the Flight calls, provide a 32-character
 By default, the trace flags byte is unsampled (`00`). Use `-traceSampled` when you need the sampled flag (`01`):
 
 ```bash
-java -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar \
+java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED \
+  -jar target/java-flight-sample-client-application-1.0-SNAPSHOT-shaded.jar \
   -query "SELECT 1" \
   -host <DREMIO_HOSTNAME> \
   -port 443 \
