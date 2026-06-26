@@ -21,24 +21,39 @@ import com.beust.jcommander.Parameter;
 import java.util.Properties;
 
 final class ConnectionParams {
+  private static final String DEFAULT_QUERY = "SELECT 1 AS example_value";
+
+  ConnectionParams() {
+    this(DEFAULT_QUERY);
+  }
+
+  ConnectionParams(String defaultQuery) {
+    host = stringEnv("DREMIO_HOST", "localhost");
+    port = intEnv("DREMIO_PORT", 32010);
+    query = stringEnv("DREMIO_QUERY", defaultQuery);
+    useEncryption = booleanEnv("DREMIO_USE_ENCRYPTION", false);
+    disableCertificateVerification =
+        booleanEnv("DREMIO_DISABLE_CERTIFICATE_VERIFICATION", false);
+  }
+
   @Parameter(names = "--host", description = "Flight SQL hostname")
-  String host = "localhost";
+  String host;
 
   @Parameter(names = "--port", description = "Flight SQL port")
-  int port = 32010;
+  int port;
 
   @Parameter(names = "--query", description = "SQL query to run")
-  String query = "SELECT 1 AS example_value";
+  String query;
 
   @Parameter(names = "--max-rows", description = "Maximum rows to print")
   int maxRows = 10;
 
   @Parameter(names = "--use-encryption", description = "Enable encrypted connection")
-  boolean useEncryption = false;
+  boolean useEncryption;
 
   @Parameter(names = "--disable-certificate-verification",
       description = "Disable TLS server verification")
-  boolean disableCertificateVerification = false;
+  boolean disableCertificateVerification;
 
   @Parameter(names = "--tls-root-certs", description = "PEM file for TLS verification")
   String tlsRootCerts;
@@ -86,5 +101,29 @@ final class ConnectionParams {
     if (value != null) {
       properties.setProperty(name, value);
     }
+  }
+
+  static String stringEnv(String name, String defaultValue) {
+    final String value = System.getenv(name);
+    if (value == null || value.isEmpty()) {
+      return defaultValue;
+    }
+    return value;
+  }
+
+  private static int intEnv(String name, int defaultValue) {
+    final String value = System.getenv(name);
+    if (value == null || value.isEmpty()) {
+      return defaultValue;
+    }
+    return Integer.parseInt(value);
+  }
+
+  private static boolean booleanEnv(String name, boolean defaultValue) {
+    final String value = System.getenv(name);
+    if (value == null || value.isEmpty()) {
+      return defaultValue;
+    }
+    return Boolean.parseBoolean(value);
   }
 }

@@ -5,12 +5,12 @@ This directory is the entrypoint for the Java examples in this repository.
 ## Available Examples
 
 - [flight-client](flight-client/README.md): Arrow Flight RPC Java sample using `flight-core`
-- [flight-sql-jdbc-oauth](flight-sql-jdbc-oauth/README.md): Java 11 Arrow Flight SQL JDBC examples for OAuth client credentials, token exchange, and Dremio user impersonation
+- [flight-sql-jdbc-oauth](flight-sql-jdbc-oauth/README.md): Java 11 Arrow Flight SQL JDBC examples for OAuth client credentials, token exchange, OAuth user impersonation, and Dremio Software inbound impersonation
 
 ## Build Entry Points
 
 - Legacy Flight client: `cd java/flight-client`
-- Flight SQL JDBC OAuth examples: `cd java/flight-sql-jdbc-oauth`
+- Flight SQL JDBC OAuth and Software impersonation examples: `cd java/flight-sql-jdbc-oauth`
 
 ## Notes
 
