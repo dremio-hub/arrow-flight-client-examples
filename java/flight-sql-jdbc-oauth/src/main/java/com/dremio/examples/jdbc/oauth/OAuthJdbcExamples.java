@@ -29,12 +29,15 @@ public final class OAuthJdbcExamples {
     final ClientCredentialsCommand clientCreds = new ClientCredentialsCommand();
     final TokenExchangeCommand tokenExchange = new TokenExchangeCommand();
     final DremioImpersonationCommand impersonation = new DremioImpersonationCommand();
+    final SoftwareImpersonationCommand softwareImpersonation =
+        new SoftwareImpersonationCommand();
 
     final JCommander jCommander = JCommander.newBuilder()
         .programName("java --add-opens=java.base/java.nio=ALL-UNNAMED -jar <jar>")
         .addCommand(clientCreds)
         .addCommand(tokenExchange)
         .addCommand(impersonation)
+        .addCommand(softwareImpersonation)
         .build();
 
     if (isTopLevelHelp(args)) {
@@ -57,7 +60,12 @@ public final class OAuthJdbcExamples {
       return;
     }
 
-    if (isCommandHelpRequested(command, clientCreds, tokenExchange, impersonation)) {
+    if (isCommandHelpRequested(command, clientCreds, tokenExchange, impersonation,
+        softwareImpersonation)) {
+      if ("software-impersonation".equals(command)) {
+        System.out.println("Compatibility: Dremio Software only; requires version > 26.1.9 "
+            + "(26.1.10 or later).");
+      }
       jCommander.getCommands().get(command).usage();
       return;
     }
@@ -65,23 +73,37 @@ public final class OAuthJdbcExamples {
     final Properties properties;
     final ConnectionParams connection;
 
-    switch (command) {
-      case "client-credentials":
-        properties = clientCreds.toProperties();
-        connection = clientCreds.connection;
-        break;
-      case "token-exchange":
-        properties = tokenExchange.toProperties();
-        connection = tokenExchange.connection;
-        break;
-      case "dremio-impersonation":
-        properties = impersonation.toProperties();
-        connection = impersonation.connection;
-        break;
-      default:
-        jCommander.usage();
-        System.exit(1);
-        return;
+    try {
+      switch (command) {
+        case "client-credentials":
+          properties = clientCreds.toProperties();
+          connection = clientCreds.connection;
+          break;
+        case "token-exchange":
+          properties = tokenExchange.toProperties();
+          connection = tokenExchange.connection;
+          break;
+        case "dremio-impersonation":
+          properties = impersonation.toProperties();
+          connection = impersonation.connection;
+          break;
+        case "software-impersonation":
+          properties = softwareImpersonation.toProperties();
+          connection = softwareImpersonation.connection;
+          FlightSqlExampleSupport.executeQueryAndValidateImpersonation(command,
+              connection.connectionUrl(), connection.query, connection.maxRows, properties,
+              softwareImpersonation.targetUser);
+          return;
+        default:
+          jCommander.usage();
+          System.exit(1);
+          return;
+      }
+    } catch (ParameterException ex) {
+      System.err.println(ex.getMessage());
+      jCommander.getCommands().get(command).usage();
+      System.exit(1);
+      return;
     }
 
     FlightSqlExampleSupport.executeQuery(command, connection.connectionUrl(),
@@ -95,7 +117,8 @@ public final class OAuthJdbcExamples {
 
   private static boolean isCommandHelpRequested(String command,
       ClientCredentialsCommand clientCreds, TokenExchangeCommand tokenExchange,
-      DremioImpersonationCommand impersonation) {
+      DremioImpersonationCommand impersonation,
+      SoftwareImpersonationCommand softwareImpersonation) {
     switch (command) {
       case "client-credentials":
         return clientCreds.connection.help;
@@ -103,6 +126,8 @@ public final class OAuthJdbcExamples {
         return tokenExchange.connection.help;
       case "dremio-impersonation":
         return impersonation.connection.help;
+      case "software-impersonation":
+        return softwareImpersonation.connection.help;
       default:
         return false;
     }

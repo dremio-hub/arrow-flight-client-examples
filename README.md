@@ -6,7 +6,7 @@ This repository provides sample Arrow Flight client applications in several lang
 
 - [java](java): Overview of the Java example modules
 - [java/flight-client](java/flight-client): Arrow Flight RPC Java sample using `flight-core`
-- [java/flight-sql-jdbc-oauth](java/flight-sql-jdbc-oauth): Arrow Flight SQL JDBC Java examples for OAuth client credentials, token exchange, and Dremio user impersonation
+- [java/flight-sql-jdbc-oauth](java/flight-sql-jdbc-oauth): Arrow Flight SQL JDBC Java examples for OAuth client credentials, token exchange, OAuth user impersonation, and Dremio Software inbound impersonation
 - [python](python): Python Arrow Flight client example
 - [go](go): Go Arrow Flight client example
 

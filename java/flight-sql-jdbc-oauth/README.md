@@ -1,10 +1,11 @@
 # Arrow Flight SQL JDBC OAuth Java Examples
 
-This module shows how to use the Arrow Flight SQL JDBC `19.0.0` driver with OAuth connection properties instead of manually calling Dremio's `/oauth/token` endpoint in application code. It covers:
+This module shows how to use the Arrow Flight SQL JDBC `19.0.0` driver with OAuth connection properties instead of manually calling Dremio's `/oauth/token` endpoint in application code. It also includes a Dremio Software basic-auth inbound impersonation example. It covers:
 
 - `client-credentials`
 - `token-exchange`
 - `dremio-impersonation`
+- `software-impersonation`
 
 ## Prerequisites
 
@@ -12,6 +13,7 @@ This module shows how to use the Arrow Flight SQL JDBC `19.0.0` driver with OAut
 - Maven 3.9+
 - A Dremio deployment with Arrow Flight SQL and OAuth enabled
 - A Dremio OAuth token endpoint, typically `http://<coordinator>:9047/oauth/token` or `https://<coordinator>/oauth/token`
+- For `software-impersonation`: Dremio Software only; requires version > 26.1.9. Use Dremio Software 26.1.10 or later.
 
 ## Build
 
@@ -52,6 +54,16 @@ All subcommands accept these options:
 
 Run `<jar> <subcommand> --help` to see all options for a specific subcommand.
 Run `<jar> --help` to list the available subcommands.
+
+Common connection options can also be set with environment variables:
+
+| Environment variable | CLI option |
+|----------------------|------------|
+| `DREMIO_HOST` | `--host` |
+| `DREMIO_PORT` | `--port` |
+| `DREMIO_QUERY` | `--query` |
+| `DREMIO_USE_ENCRYPTION` | `--use-encryption` |
+| `DREMIO_DISABLE_CERTIFICATE_VERIFICATION` | `--disable-certificate-verification` |
 
 ## Client Credentials
 
@@ -125,8 +137,92 @@ java --add-opens=java.base/java.nio=ALL-UNNAMED \
   --proxy-pat "$PROXY_USER_PAT"
 ```
 
+## Dremio Software Inbound Impersonation
+
+Dremio Software only; requires version > 26.1.9. Use Dremio Software 26.1.10 or later.
+
+This example uses Dremio Software username/password authentication with the Arrow Flight SQL JDBC driver and sets the JDBC connection property:
+
+```text
+impersonation_target=<target-user>
+```
+
+It does not use OAuth token exchange. The command validates inbound impersonation by running this query by default:
+
+```sql
+SELECT USER() AS user_name,
+       "SESSION_USER"() AS session_user_name,
+       "SYSTEM_USER"() AS system_user_name
+```
+
+The example prints the returned row and fails if `USER()`, `SESSION_USER()`, or `SYSTEM_USER()` returns anything other than the target user.
+
+Additional options:
+
+| Option | Environment variable | Description | Default |
+|--------|----------------------|-------------|---------|
+| `--username`, `--proxy-user` | `DREMIO_USERNAME` | Dremio proxy username | `dremio` |
+| `--password` | `DREMIO_PASSWORD` | Dremio proxy user password | Required |
+| `--target-user` | `DREMIO_TARGET_USER` | Dremio user to impersonate | Required |
+
+### Dremio Software Setup
+
+Before running the example, make sure the target user exists in Dremio Software. Then configure an inbound impersonation policy as an administrator:
+
+```sql
+ALTER SYSTEM SET "exec.impersonation.inbound_policies"='[
+  {
+    proxy_principals:{users:["<proxy_user>"]},
+    target_principals:{users:["<target_user>"]}
+  }
+]'
+```
+
+Verify the policy:
+
+```sql
+SELECT name, string_val
+FROM sys.options
+WHERE name = 'exec.impersonation.inbound_policies'
+```
+
+See the Dremio inbound impersonation documentation:
+https://docs.dremio.com/current/security/rbac/inbound-impersonation/
+
+### Run
+
+```bash
+java --add-opens=java.base/java.nio=ALL-UNNAMED \
+  -jar target/java-flight-sql-jdbc-oauth-examples-1.0-SNAPSHOT.jar \
+  software-impersonation \
+  --host automaster.drem.io \
+  --port 32010 \
+  --use-encryption \
+  --username dremio \
+  --password "$DREMIO_PASSWORD" \
+  --target-user impersonation_target_test
+```
+
+Expected successful output:
+
+```text
+Scenario: software-impersonation
+Flight SQL URL: jdbc:arrow-flight-sql://automaster.drem.io:32010
+Query: SELECT USER() AS user_name, "SESSION_USER"() AS session_user_name, "SYSTEM_USER"() AS system_user_name
+user_name	session_user_name	system_user_name
+impersonation_target_test	impersonation_target_test	impersonation_target_test
+Impersonation validation passed: USER(), SESSION_USER(), and SYSTEM_USER() all returned 'impersonation_target_test'.
+```
+
+Expected failure without an inbound impersonation policy:
+
+```text
+Proxy user '<proxy>' is not authorized to impersonate target user '<target>'.
+```
+
 ## Scenarios
 
 - `client-credentials`: Uses `oauth.flow=client_credentials`
 - `token-exchange`: Uses `oauth.flow=token_exchange`
 - `dremio-impersonation`: Uses `oauth.flow=token_exchange` with Dremio-specific subject and actor token types
+- `software-impersonation`: Uses username/password authentication with `impersonation_target=<target-user>`. Dremio Software only; requires version > 26.1.9.

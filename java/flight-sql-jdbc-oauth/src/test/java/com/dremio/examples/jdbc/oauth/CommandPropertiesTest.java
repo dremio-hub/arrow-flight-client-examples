@@ -94,6 +94,39 @@ class CommandPropertiesTest {
   }
 
   @Test
+  void createsSoftwareImpersonationProperties() {
+    final SoftwareImpersonationCommand cmd = new SoftwareImpersonationCommand();
+    cmd.username = "proxy-user";
+    cmd.password = "proxy-password";
+    cmd.targetUser = "target-user";
+
+    final Properties properties = cmd.toProperties();
+
+    assertEquals("proxy-user", properties.getProperty("user"));
+    assertEquals("proxy-password", properties.getProperty("password"));
+    assertEquals("target-user", properties.getProperty("impersonation_target"));
+    assertEquals(SoftwareImpersonationCommand.DEFAULT_VALIDATION_QUERY, cmd.connection.query);
+  }
+
+  @Test
+  void rejectsSoftwareImpersonationWithoutPassword() {
+    final SoftwareImpersonationCommand cmd = new SoftwareImpersonationCommand();
+    cmd.password = null;
+    cmd.targetUser = "target-user";
+
+    assertThrows(ParameterException.class, cmd::toProperties);
+  }
+
+  @Test
+  void rejectsSoftwareImpersonationWithoutTargetUser() {
+    final SoftwareImpersonationCommand cmd = new SoftwareImpersonationCommand();
+    cmd.password = "proxy-password";
+    cmd.targetUser = null;
+
+    assertThrows(ParameterException.class, cmd::toProperties);
+  }
+
+  @Test
   void rejectsIncompleteTokenExchangeActorPair() {
     final TokenExchangeCommand cmd = new TokenExchangeCommand();
     cmd.oauth.tokenUri = "https://coordinator.example.com/oauth/token";
